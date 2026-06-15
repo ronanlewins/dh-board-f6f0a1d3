@@ -2,24 +2,29 @@
 
 A single-page, mobile-first dashboard for Conor. One URL, updated each week.
 
-- **Live URL:** _(filled in after first deploy — GitHub Pages)_
-- **Access:** public but `noindex` + `robots.txt` disallow. Unguessable repo name. Anyone with the link can view; it won't show in Google.
+- **Live URL:** https://ronanlewins.github.io/dh-board-f6f0a1d3/ (GitHub Pages)
+- **Access:** **password-protected** — the page is AES-encrypted with [StatiCrypt](https://github.com/robinmoisson/staticrypt); Conor enters a shared password to unlock it. Also `noindex` + `robots.txt`. The served `index.html` is an encrypted blob — the numbers are NOT readable without the password, and no plaintext data file is served.
+- **Password:** stored locally in `.staticrypt-pw` (gitignored — never committed). Change it by editing that file and re-running `./publish.sh`.
 - **Source of content:** the `/meta-weekly-report` skill in the Dark Horse workspace.
 
 ## How it works
 
-- `index.html` — the dashboard. Vanilla HTML/CSS/JS, no build step, no dependencies. Reads `data/weeks.json` at load.
-- `data/weeks.json` — all weeks, newest last. The dashboard shows the **last** entry as "this week" and draws the cost-per-enquiry trend across all entries.
+- `_src/template.html` — the dashboard markup/CSS/JS, with a `__DATA__` marker where the data gets inlined. **Committed** (no data, no secrets).
+- `data/weeks.json` — all weeks, newest last. **Gitignored** (local only) so the raw numbers never reach the public repo. The dashboard shows the **last** entry as "this week" and draws the cost-per-enquiry trend across all entries.
+- `build.sh` — inlines `data/weeks.json` into the template (→ `_build/index.html`), then encrypts it with StatiCrypt using the password from `.staticrypt-pw` → produces the served `index.html`.
+- `index.html` — the **encrypted** page (the only thing served). Regenerated every build.
 
 ## Weekly update (done by `/meta-weekly-report`)
 
 1. Append the new week object to the `weeks` array in `data/weeks.json` and bump `updated`.
-2. Commit + push:
+2. Build + commit + push (publish.sh runs build.sh = inline + encrypt, then pushes):
    ```bash
    cd ~/dark-horse-meta-dashboard
    ./publish.sh "week ending YYYY-MM-DD"
    ```
-3. GitHub Pages redeploys in ~1 minute. The URL stays the same.
+3. GitHub Pages redeploys in ~1 minute. The URL and password stay the same.
+
+> Requires: Node (for `npx staticrypt`) + Python 3 (for the inline step). Both already present on this machine.
 
 ## Week object schema
 
