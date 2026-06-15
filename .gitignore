@@ -1,0 +1,6 @@
+node_modules/
+_build/
+data/weeks.json
+.staticrypt-pw
+.staticrypt.json
+staticrypt.config.json

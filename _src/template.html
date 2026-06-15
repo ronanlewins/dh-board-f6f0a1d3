@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Dark Horse — Meta Ads</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0d0b0a;
+    --panel: #17130f;
+    --panel-2: #1f1813;
+    --line: #2c241d;
+    --text: #ece8e2;
+    --muted: #9a8f83;
+    --gold: #efc88e;
+    --brick: #bd312e;
+    --green: #93C47D;
+    --amber: #efc88e;
+    --grey: #8a8580;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Figtree", system-ui, -apple-system, sans-serif;
+    line-height: 1.55;
+    padding: 28px 20px 64px;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+  .brand {
+    font-size: 12px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-family: "Spectral", Georgia, serif;
+    font-weight: 500;
+    font-size: 30px;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .week {
+    color: var(--muted);
+    font-size: 15px;
+    margin-bottom: 20px;
+  }
+  .status {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 15px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    margin-bottom: 18px;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .s-measurement .dot { background: var(--grey); }
+  .s-ontrack .dot { background: var(--green); }
+  .s-watch .dot { background: var(--amber); }
+  .s-problem .dot { background: var(--brick); }
+  .headline {
+    font-family: "Spectral", Georgia, serif;
+    font-size: 18px;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 22px;
+  }
+  .btn-video {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    text-decoration: none;
+    background: var(--gold); color: #1a1308;
+    font-weight: 700; font-size: 16px;
+    padding: 15px 20px; border-radius: 12px;
+    margin-bottom: 30px;
+  }
+  .btn-video .play {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #1a1308; color: var(--gold);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; flex: none;
+  }
+  .btn-video .sub { font-weight: 500; opacity: .7; font-size: 13px; }
+  .section-label {
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 12px 2px;
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 30px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .card.wide { grid-column: span 2; }
+  .card .label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .card .value {
+    font-family: "Spectral", Georgia, serif;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .card .sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px;
+    font-size: 12px; font-weight: 600;
+    color: var(--pc);
+    background: color-mix(in srgb, var(--pc) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--pc) 38%, transparent);
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); flex: none; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    margin: -16px 2px 30px;
+    font-size: 12px; color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .trend {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 30px;
+  }
+  .trend .empty { color: var(--muted); font-size: 14px; font-style: italic; }
+  .block { margin-bottom: 26px; }
+  .block h3 {
+    font-family: "Spectral", Georgia, serif;
+    font-weight: 600;
+    font-size: 19px;
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .block h3 .icon { font-size: 16px; }
+  .block ul { list-style: none; }
+  .block li {
+    position: relative;
+    padding-left: 18px;
+    margin-bottom: 9px;
+    color: #d8d2c9;
+    font-size: 15.5px;
+  }
+  .block li::before {
+    content: "";
+    position: absolute; left: 0; top: 10px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--gold);
+  }
+  .plan {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--gold);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 34px;
+  }
+  .plan h3 { color: var(--gold); }
+  .plan p { font-size: 16.5px; font-family: "Spectral", Georgia, serif; }
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+  footer a { color: var(--gold); text-decoration: none; font-weight: 600; }
+  .sheet-link {
+    display: inline-block;
+    margin-bottom: 22px;
+    color: var(--gold); text-decoration: none; font-weight: 600; font-size: 14.5px;
+    border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+    padding-bottom: 2px;
+  }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  @media (max-width: 420px) {
+    h1 { font-size: 26px; }
+    .card .value { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+  <div id="app">
+    <p class="week">Loading…</p>
+  </div>
+
+<script>
+const STATUS = {
+  measurement: { cls: "s-measurement", label: "Measurement window" },
+  ontrack:     { cls: "s-ontrack",     label: "On track" },
+  watch:       { cls: "s-watch",       label: "Watch" },
+  problem:     { cls: "s-problem",     label: "Problem" }
+};
+
+function el(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; }
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+
+// Plain-English band tags. Colour key + default wording; the weekly report sets the band per metric.
+const BANDS = {
+  great: { c: "#86c46a", t: "Great" },
+  good:  { c: "#a8cf96", t: "Good" },
+  watch: { c: "#e6b75e", t: "Watch" },
+  high:  { c: "#e0894f", t: "Running high" },
+  low:   { c: "#e0894f", t: "Running low" },
+  poor:  { c: "#d9534f", t: "Needs attention" }
+};
+
+function pill(band, label, provisional) {
+  const b = BANDS[band];
+  if (!b) return "";
+  const txt = (label || b.t) + (provisional ? " · early" : "");
+  return `<div class="pill" style="--pc:${b.c}${provisional ? ";opacity:.6" : ""}"><span class="pdot"></span>${esc(txt)}</div>`;
+}
+
+function sparkline(weeks, key, unit) {
+  const pts = weeks.map(w => w.metrics && typeof w.metrics[key] === "number" ? w.metrics[key] : null).filter(v => v !== null);
+  if (pts.length < 2) {
+    return `<p class="empty">The trend line builds automatically as more weeks are added. (${pts.length} week so far.)</p>`;
+  }
+  const W = 600, H = 90, pad = 8;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = (max - min) || 1;
+  const step = (W - pad * 2) / (pts.length - 1);
+  const xy = pts.map((v, i) => {
+    const x = pad + i * step;
+    const y = pad + (H - pad * 2) * (1 - (v - min) / range);
+    return [x, y];
+  });
+  const line = xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const dots = xy.map(([x, y]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="#efc88e" />`).join("");
+  const last = pts[pts.length - 1];
+  return `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${key} trend">
+      <polyline points="${line}" fill="none" stroke="#efc88e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+      ${dots}
+    </svg>
+    <p class="empty" style="font-style:normal;margin-top:8px;color:#9a8f83;">Latest: ${unit}${last} &nbsp;·&nbsp; ${pts.length} weeks tracked</p>`;
+}
+
+function render(data) {
+  const weeks = data.weeks || [];
+  const w = weeks[weeks.length - 1];
+  const app = document.getElementById("app");
+  if (!w) { app.innerHTML = '<p class="week">No data yet.</p>'; return; }
+  const st = STATUS[w.status] || STATUS.measurement;
+  const c = w.cards || {};
+  const prov = w.status === "measurement";
+
+  app.innerHTML = `
+    <p class="brand">Dark Horse · Meta Ads</p>
+    <h1>This week's ad performance</h1>
+    <p class="week">${esc(w.week_label || w.week_ending)}</p>
+
+    <div class="status ${st.cls}"><span class="dot"></span>${esc(w.status_label || st.label)}</div>
+
+    ${w.headline ? `<div class="headline">${esc(w.headline)}</div>` : ""}
+
+    ${w.video_url ? `<a class="btn-video" href="${esc(w.video_url)}" target="_blank" rel="noopener"><span class="play">▶</span><span>Watch this week's walkthrough <span class="sub">(quick video from Ronan)</span></span></a>` : ""}
+
+    <p class="section-label">The numbers</p>
+    <div class="cards">
+      <div class="card"><div class="label">Spend</div><div class="value">${esc(c.spend || "—")}</div></div>
+      <div class="card"><div class="label">Enquiries</div><div class="value">${esc(c.enquiries || "—")}</div>${c.enquiries_sub ? `<div class="sub">${esc(c.enquiries_sub)}</div>` : ""}</div>
+      <div class="card"><div class="label">Cost per enquiry</div><div class="value">${esc(c.cost_per_enquiry || "—")}</div>${c.cost_per_enquiry_sub ? `<div class="sub">${esc(c.cost_per_enquiry_sub)}</div>` : ""}${pill(c.cost_per_enquiry_band, c.cost_per_enquiry_band_label, prov)}</div>
+      <div class="card"><div class="label">Click rate</div><div class="value">${esc(c.click_rate || "—")}</div>${pill(c.click_rate_band, c.click_rate_band_label, prov)}</div>
+      <div class="card wide"><div class="label">Best performing ad</div><div class="value">${esc(c.best_ad || "—")}</div></div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#86c46a"></i>Good</span>
+      <span><i style="background:#e6b75e"></i>Keep an eye</span>
+      <span><i style="background:#d9534f"></i>Needs attention</span>
+      ${prov ? `<span style="font-style:italic">“early” = too soon to be meaningful (week 1)</span>` : ""}
+    </div>
+
+    <p class="section-label">Cost per enquiry over time</p>
+    <div class="trend">${sparkline(weeks, "cpl", "€")}</div>
+
+    <div class="block">
+      <h3><span class="icon">✓</span>What's working</h3>
+      <ul>${(w.working || []).map(x => `<li>${esc(x)}</li>`).join("") || "<li>—</li>"}</ul>
+    </div>
+
+    <div class="block">
+      <h3><span class="icon">!</span>What's not</h3>
+      <ul>${(w.not_working || []).map(x => `<li>${esc(x)}</li>`).join("") || "<li>None this week.</li>"}</ul>
+    </div>
+
+    <div class="plan">
+      <h3>→ The plan</h3>
+      <p>${esc(w.next_move || "—")}</p>
+    </div>
+
+    ${data.sheet_url ? `<a class="sheet-link" href="${esc(data.sheet_url)}" target="_blank" rel="noopener">Want the full detail? Open the numbers sheet →</a>` : ""}
+
+    <footer>
+      Updated automatically each week from the Meta Ads dashboard.<br />
+      Last updated: ${esc(data.updated || "—")} · Prepared by Ronan.${data.sheet_url ? ` · <a href="${esc(data.sheet_url)}" target="_blank" rel="noopener">Full sheet</a>` : ""}
+    </footer>`;
+}
+
+// Data is inlined at build time (see build.sh), then the whole page is encrypted with StatiCrypt.
+const DATA = __DATA__;
+render(DATA);
+</script>
+</body>
+</html>
