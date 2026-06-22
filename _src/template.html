@@ -155,6 +155,16 @@
   }
   .trend .empty { color: var(--muted); font-size: 14px; font-style: italic; }
   .block { margin-bottom: 26px; }
+  .explainer {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 18px 10px;
+    margin-bottom: 30px;
+  }
+  .explainer h3 { font-size: 16px; color: var(--muted); }
+  .explainer li { font-size: 14.5px; color: var(--muted); }
+  .explainer li strong { color: var(--text); }
   .block h3 {
     font-family: "Spectral", Georgia, serif;
     font-weight: 600;
@@ -318,6 +328,16 @@ function render(data) {
     <div class="plan">
       <h3>→ The plan</h3>
       <p>${esc(w.next_move || "—")}</p>
+    </div>
+
+    <div class="block explainer">
+      <h3><span class="icon">?</span>What the colours mean</h3>
+      <ul>
+        <li><strong>Good</strong> — this is healthy. Keep going, nothing to change.</li>
+        <li><strong>Keep an eye</strong> — fine for now, just worth watching. No change yet.</li>
+        <li><strong>Needs attention</strong> — something's off. We change one thing (usually the ad, the audience, or the landing page) and give it two weeks before judging.</li>
+        <li><strong>“early”</strong> — too soon to read. Week-one numbers bounce around, so we wait before acting.</li>
+      </ul>
     </div>
 
     ${data.sheet_url ? `<a class="sheet-link" href="${esc(data.sheet_url)}" target="_blank" rel="noopener">Want the full detail? Open the numbers sheet →</a>` : ""}
