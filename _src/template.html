@@ -5,29 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex, nofollow" />
 <title>Dark Horse — Meta Ads</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #0d0b0a;
-    --panel: #17130f;
-    --panel-2: #1f1813;
-    --line: #2c241d;
-    --text: #ece8e2;
-    --muted: #9a8f83;
-    --gold: #efc88e;
+    /* Light Notion theme */
+    --bg: #fbfbfa;          /* off-white page */
+    --panel: #ffffff;       /* card / block background */
+    --panel-2: #f7f6f4;     /* faint fill */
+    --line: #e8e6e1;        /* warm-grey hairline border */
+    --text: #37352f;        /* Notion ink */
+    --muted: #787469;       /* warm grey */
+    --gold-ink: #9a6a06;    /* dark gold — links / brand label (AA on white) */
+    --gold-solid: #e6b24e;  /* solid gold — video button fill */
     --brick: #bd312e;
-    --green: #93C47D;
-    --amber: #efc88e;
-    --grey: #8a8580;
+    --green: #6f9f6a;
+    --amber: #caa53d;
+    --grey: #9a958c;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: "Figtree", system-ui, -apple-system, sans-serif;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     line-height: 1.55;
     padding: 28px 20px 64px;
     max-width: 760px;
@@ -37,15 +36,15 @@
     font-size: 12px;
     letter-spacing: 0.32em;
     text-transform: uppercase;
-    color: var(--gold);
+    color: var(--gold-ink);
     font-weight: 600;
     margin-bottom: 6px;
   }
   h1 {
-    font-family: "Spectral", Georgia, serif;
-    font-weight: 500;
+    font-weight: 700;
     font-size: 30px;
-    line-height: 1.1;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
     margin-bottom: 4px;
   }
   .week {
@@ -57,26 +56,25 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 11px 18px;
-    border-radius: 999px;
+    padding: 10px 16px;
+    border-radius: 8px;
     font-weight: 600;
     font-size: 15px;
     border: 1px solid var(--line);
     background: var(--panel);
     margin-bottom: 18px;
   }
-  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
   .s-measurement .dot { background: var(--grey); }
   .s-ontrack .dot { background: var(--green); }
   .s-watch .dot { background: var(--amber); }
   .s-problem .dot { background: var(--brick); }
   .headline {
-    font-family: "Spectral", Georgia, serif;
-    font-size: 18px;
+    font-size: 17px;
     color: var(--text);
-    background: var(--panel);
+    background: #fbf6ea;
     border: 1px solid var(--line);
-    border-left: 3px solid var(--gold);
+    border-left: 4px solid var(--gold-solid);
     border-radius: 10px;
     padding: 16px 18px;
     margin-bottom: 22px;
@@ -84,37 +82,40 @@
   .btn-video {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     text-decoration: none;
-    background: var(--gold); color: #1a1308;
+    background: var(--gold-solid); color: #3a2a05;
     font-weight: 700; font-size: 16px;
-    padding: 15px 20px; border-radius: 12px;
+    padding: 15px 20px; border-radius: 10px;
     margin-bottom: 30px;
   }
   .btn-video .play {
     width: 24px; height: 24px; border-radius: 50%;
-    background: #1a1308; color: var(--gold);
+    background: #3a2a05; color: var(--gold-solid);
     display: inline-flex; align-items: center; justify-content: center;
     font-size: 11px; flex: none;
   }
-  .btn-video .sub { font-weight: 500; opacity: .7; font-size: 13px; }
+  .btn-video .sub { font-weight: 500; opacity: .75; font-size: 13px; }
   .section-label {
     font-size: 12px;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
     font-weight: 600;
     margin: 0 0 12px 2px;
+    padding-top: 4px;
   }
   .cards {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
-    margin-bottom: 30px;
+    margin-bottom: 28px;
   }
+  /* Notion-style block: white, soft warm border, rounded, minimal shadow */
   .card {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 16px;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.03);
   }
   .card.wide { grid-column: span 2; }
   .card .label {
@@ -123,25 +124,39 @@
     margin-bottom: 6px;
   }
   .card .value {
-    font-family: "Spectral", Georgia, serif;
     font-size: 28px;
-    font-weight: 500;
-    letter-spacing: -0.01em;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--text);
   }
-  .card .sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
-  .pill {
-    display: inline-flex; align-items: center; gap: 6px;
+  .card .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+
+  /* Zone-coded cards — soft wash + coloured left border + icon + text label.
+     Colour is never the only cue: border + icon shape + word label all carry the zone. */
+  .card.zone {
+    background: var(--zbg);
+    border: 1px solid color-mix(in srgb, var(--zb) 40%, var(--line));
+    border-left: 4px solid var(--zb);
+  }
+  .card.zone .value { color: var(--zc); }      /* number in zone colour (AA on wash) */
+  .card.zone .label { color: color-mix(in srgb, var(--zc) 70%, var(--muted)); }
+  .zone-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .zone-icon {
+    width: 18px; height: 18px; border-radius: 5px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; line-height: 1;
+    background: var(--zb); color: #fff;
+  }
+  .zone-label {
+    display: inline-flex; align-items: center;
     margin-top: 10px;
-    font-size: 12px; font-weight: 600;
-    color: var(--pc);
-    background: color-mix(in srgb, var(--pc) 15%, transparent);
-    border: 1px solid color-mix(in srgb, var(--pc) 38%, transparent);
-    padding: 3px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.01em;
+    color: var(--zc);
   }
-  .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); flex: none; }
+  .zone-label.early { opacity: 0.7; font-weight: 600; }
   .legend {
     display: flex; flex-wrap: wrap; gap: 14px;
-    margin: -16px 2px 30px;
+    margin: -12px 2px 30px;
     font-size: 12px; color: var(--muted);
   }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -149,25 +164,25 @@
   .trend {
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 18px;
     margin-bottom: 30px;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.03);
   }
   .trend .empty { color: var(--muted); font-size: 14px; font-style: italic; }
   .block { margin-bottom: 26px; }
   .explainer {
-    background: var(--panel);
+    background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 18px 18px 10px;
     margin-bottom: 30px;
   }
-  .explainer h3 { font-size: 16px; color: var(--muted); }
+  .explainer h3 { font-size: 16px; color: var(--text); }
   .explainer li { font-size: 14.5px; color: var(--muted); }
   .explainer li strong { color: var(--text); }
   .block h3 {
-    font-family: "Spectral", Georgia, serif;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 19px;
     margin-bottom: 10px;
     display: flex; align-items: center; gap: 9px;
@@ -178,25 +193,25 @@
     position: relative;
     padding-left: 18px;
     margin-bottom: 9px;
-    color: #d8d2c9;
+    color: #4a463e;
     font-size: 15.5px;
   }
   .block li::before {
     content: "";
     position: absolute; left: 0; top: 10px;
     width: 6px; height: 6px; border-radius: 50%;
-    background: var(--gold);
+    background: var(--gold-solid);
   }
   .plan {
-    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    background: #fbf6ea;
     border: 1px solid var(--line);
-    border-top: 3px solid var(--gold);
-    border-radius: 12px;
+    border-left: 4px solid var(--gold-solid);
+    border-radius: 10px;
     padding: 20px;
     margin-bottom: 34px;
   }
-  .plan h3 { color: var(--gold); }
-  .plan p { font-size: 16.5px; font-family: "Spectral", Georgia, serif; }
+  .plan h3 { color: var(--gold-ink); }
+  .plan p { font-size: 16px; }
   footer {
     border-top: 1px solid var(--line);
     padding-top: 16px;
@@ -204,12 +219,12 @@
     font-size: 12.5px;
     line-height: 1.6;
   }
-  footer a { color: var(--gold); text-decoration: none; font-weight: 600; }
+  footer a { color: var(--gold-ink); text-decoration: none; font-weight: 600; }
   .sheet-link {
     display: inline-block;
     margin-bottom: 22px;
-    color: var(--gold); text-decoration: none; font-weight: 600; font-size: 14.5px;
-    border-bottom: 1px solid color-mix(in srgb, var(--gold) 40%, transparent);
+    color: var(--gold-ink); text-decoration: none; font-weight: 600; font-size: 14.5px;
+    border-bottom: 1px solid color-mix(in srgb, var(--gold-ink) 40%, transparent);
     padding-bottom: 2px;
   }
   svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -235,21 +250,35 @@ const STATUS = {
 function el(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstChild; }
 function esc(s) { return String(s).replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
 
-// Plain-English band tags. Colour key + default wording; the weekly report sets the band per metric.
+// Zone bands. Each carries: text/number colour (tc, AA on its wash), wash bg, border colour (bc),
+// and a distinct icon SHAPE — so the zone reads from border + shape + word label, never hue alone.
 const BANDS = {
-  great: { c: "#86c46a", t: "Great" },
-  good:  { c: "#a8cf96", t: "Good" },
-  watch: { c: "#e6b75e", t: "Watch" },
-  high:  { c: "#e0894f", t: "Running high" },
-  low:   { c: "#e0894f", t: "Running low" },
-  poor:  { c: "#d9534f", t: "Needs attention" }
+  great: { t: "Great",            tc: "#2e6e36", bg: "#edf5ec", bc: "#6f9f6a", icon: "✓" },
+  good:  { t: "Good",             tc: "#2e6e36", bg: "#edf5ec", bc: "#6f9f6a", icon: "✓" },
+  watch: { t: "Watch",            tc: "#8a6400", bg: "#fbf3e0", bc: "#caa53d", icon: "◆" },
+  high:  { t: "Running high",     tc: "#9c4a1a", bg: "#fbeede", bc: "#d98a4a", icon: "▲" },
+  low:   { t: "Running low",      tc: "#9c4a1a", bg: "#fbeede", bc: "#d98a4a", icon: "▼" },
+  poor:  { t: "Needs attention",  tc: "#b22b27", bg: "#fbeceb", bc: "#bd312e", icon: "!" }
 };
 
-function pill(band, label, provisional) {
+// Render one zone-coded numeric card with all three non-colour cues (border + icon + label).
+function zoneCard(label, value, sub, band, bandLabel, provisional, wide) {
   const b = BANDS[band];
-  if (!b) return "";
-  const txt = (label || b.t) + (provisional ? " · early" : "");
-  return `<div class="pill" style="--pc:${b.c}${provisional ? ";opacity:.6" : ""}"><span class="pdot"></span>${esc(txt)}</div>`;
+  if (!b) {
+    // No band → fall back to a neutral block so we never deploy a broken card.
+    return `<div class="card${wide ? " wide" : ""}"><div class="label">${esc(label)}</div><div class="value">${esc(value || "—")}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`;
+  }
+  const word = (bandLabel || b.t) + (provisional ? " · early" : "");
+  return `
+    <div class="card zone${wide ? " wide" : ""}" style="--zc:${b.tc};--zbg:${b.bg};--zb:${b.bc}">
+      <div class="zone-head">
+        <span class="zone-icon" aria-hidden="true">${b.icon}</span>
+        <span class="label">${esc(label)}</span>
+      </div>
+      <div class="value">${esc(value || "—")}</div>
+      ${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
+      <div class="zone-label${provisional ? " early" : ""}">${esc(word)}</div>
+    </div>`;
 }
 
 function shortWeek(w) {
@@ -263,6 +292,7 @@ function shortWeek(w) {
 }
 
 // Cost-per-enquiry trend chart. Healthy = under €40 (the operating range for this funnel).
+// Note: P2 replaces this with the generalised SVG chart helper; kept here, light-themed, so the page still renders.
 function sparkline(weeks, key, unit) {
   const HEALTHY = 40; // €/enquiry: at or below this is a healthy cost for this kind of campaign
   const series = weeks
@@ -292,11 +322,11 @@ function sparkline(weeks, key, unit) {
 
   const dots = pts.map(([px, py], i) => {
     const s = series[i];
-    const valLbl = `<text x="${px.toFixed(1)}" y="${(py - 14).toFixed(1)}" text-anchor="middle" font-size="17" font-weight="700" fill="#f0e9dd">${unit}${s.v}</text>`;
+    const valLbl = `<text x="${px.toFixed(1)}" y="${(py - 14).toFixed(1)}" text-anchor="middle" font-size="17" font-weight="700" fill="#37352f">${unit}${s.v}</text>`;
     const wkLbl = (i % everyNth === 0)
-      ? `<text x="${px.toFixed(1)}" y="${(baseY + 26).toFixed(1)}" text-anchor="middle" font-size="14" fill="#9a8f83">${esc(s.label)}</text>`
+      ? `<text x="${px.toFixed(1)}" y="${(baseY + 26).toFixed(1)}" text-anchor="middle" font-size="14" fill="#787469">${esc(s.label)}</text>`
       : "";
-    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="#efc88e" stroke="#1a1714" stroke-width="2" />${valLbl}${wkLbl}`;
+    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="#cf9a3a" stroke="#ffffff" stroke-width="2" />${valLbl}${wkLbl}`;
   }).join("");
 
   const last = series[series.length - 1].v;
@@ -305,21 +335,21 @@ function sparkline(weeks, key, unit) {
   return `
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cost per enquiry, week by week. Latest ${unit}${last}.">
       <!-- healthy zone -->
-      <rect x="${padL}" y="${healthyY.toFixed(1)}" width="${plotW}" height="${(baseY - healthyY).toFixed(1)}" fill="#86c46a" fill-opacity="0.13" />
-      <line x1="${padL}" y1="${healthyY.toFixed(1)}" x2="${padL + plotW}" y2="${healthyY.toFixed(1)}" stroke="#86c46a" stroke-width="1.5" stroke-dasharray="5 5" />
-      <text x="${padL + 6}" y="${(healthyY - 8).toFixed(1)}" font-size="14" fill="#86c46a" font-weight="600">Healthy zone — under ${unit}${HEALTHY}</text>
+      <rect x="${padL}" y="${healthyY.toFixed(1)}" width="${plotW}" height="${(baseY - healthyY).toFixed(1)}" fill="#6f9f6a" fill-opacity="0.14" />
+      <line x1="${padL}" y1="${healthyY.toFixed(1)}" x2="${padL + plotW}" y2="${healthyY.toFixed(1)}" stroke="#6f9f6a" stroke-width="1.5" stroke-dasharray="5 5" />
+      <text x="${padL + 6}" y="${(healthyY - 8).toFixed(1)}" font-size="14" fill="#2e6e36" font-weight="600">Healthy zone — under ${unit}${HEALTHY}</text>
       <!-- axis -->
-      <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${padL + plotW}" y2="${baseY.toFixed(1)}" stroke="#3a342c" stroke-width="1.5" />
-      <text x="${(padL - 10).toFixed(1)}" y="${(healthyY + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#7d7367">${unit}${HEALTHY}</text>
-      <text x="${(padL - 10).toFixed(1)}" y="${(baseY + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#7d7367">${unit}0</text>
+      <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${padL + plotW}" y2="${baseY.toFixed(1)}" stroke="#d8d5cf" stroke-width="1.5" />
+      <text x="${(padL - 10).toFixed(1)}" y="${(healthyY + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#9a958c">${unit}${HEALTHY}</text>
+      <text x="${(padL - 10).toFixed(1)}" y="${(baseY + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#9a958c">${unit}0</text>
       <!-- trend line -->
-      <polyline points="${line}" fill="none" stroke="#efc88e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
+      <polyline points="${line}" fill="none" stroke="#cf9a3a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
       ${dots}
     </svg>
-    <p class="empty" style="font-style:normal;margin-top:12px;color:#b8afa1;font-size:14px;line-height:1.55;">
-      <strong style="color:#d8d2c9;">What this shows:</strong> each dot is one week. It's what we pay in Facebook ads to get one enquiry — <strong style="color:#d8d2c9;">lower is better</strong>.
+    <p class="empty" style="font-style:normal;margin-top:12px;color:#787469;font-size:14px;line-height:1.55;">
+      <strong style="color:#37352f;">What this shows:</strong> each dot is one week. It's what we pay in Facebook ads to get one enquiry — <strong style="color:#37352f;">lower is better</strong>.
       As long as the line stays in the green band (under ${unit}${HEALTHY}), the cost is healthy.
-      Right now it's at <strong style="color:#d8d2c9;">${unit}${last}</strong>${inHealthy ? ", well inside the healthy range" : ""}.
+      Right now it's at <strong style="color:#37352f;">${unit}${last}</strong>${inHealthy ? ", well inside the healthy range" : ""}.
     </p>`;
 }
 
@@ -347,14 +377,15 @@ function render(data) {
     <div class="cards">
       <div class="card"><div class="label">Spend</div><div class="value">${esc(c.spend || "—")}</div></div>
       <div class="card"><div class="label">Enquiries</div><div class="value">${esc(c.enquiries || "—")}</div>${c.enquiries_sub ? `<div class="sub">${esc(c.enquiries_sub)}</div>` : ""}</div>
-      <div class="card"><div class="label">Cost per enquiry</div><div class="value">${esc(c.cost_per_enquiry || "—")}</div>${c.cost_per_enquiry_sub ? `<div class="sub">${esc(c.cost_per_enquiry_sub)}</div>` : ""}${pill(c.cost_per_enquiry_band, c.cost_per_enquiry_band_label, prov)}</div>
-      <div class="card"><div class="label">Click rate</div><div class="value">${esc(c.click_rate || "—")}</div>${pill(c.click_rate_band, c.click_rate_band_label, prov)}</div>
+      ${zoneCard("Cost per enquiry", c.cost_per_enquiry, c.cost_per_enquiry_sub, c.cost_per_enquiry_band, c.cost_per_enquiry_band_label, prov, false)}
+      ${zoneCard("Click rate", c.click_rate, c.click_rate_sub, c.click_rate_band, c.click_rate_band_label, prov, false)}
+      ${zoneCard("Audience freshness", c.audience_freshness, c.audience_freshness_sub, c.audience_freshness_band, c.audience_freshness_band_label, prov, true)}
       <div class="card wide"><div class="label">Best performing ad</div><div class="value">${esc(c.best_ad || "—")}</div></div>
     </div>
     <div class="legend">
-      <span><i style="background:#86c46a"></i>Good</span>
-      <span><i style="background:#e6b75e"></i>Keep an eye</span>
-      <span><i style="background:#d9534f"></i>Needs attention</span>
+      <span><i style="background:#6f9f6a"></i>Good</span>
+      <span><i style="background:#caa53d"></i>Keep an eye</span>
+      <span><i style="background:#bd312e"></i>Needs attention</span>
       ${prov ? `<span style="font-style:italic">“early” = too soon to be meaningful (week 1)</span>` : ""}
     </div>
 
