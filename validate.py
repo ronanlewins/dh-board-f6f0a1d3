@@ -5,8 +5,9 @@ Fails loudly (nonzero exit) and names the offending week/field if:
   - the file is not valid JSON,
   - any week is missing a required numeric in `metrics` (cpl, ctr, frequency, enquiries, spend),
   - any week is missing a required card/band field (incl. the 4 audience_freshness fields),
-  - top-level `cpl_bands` is malformed (not an ordered ascending array, missing key/color,
-    a non-final max that isn't a number, or a final max that isn't null).
+  - any top-level band array (`cpl_bands`, `ctr_bands`, `frequency_bands`) is malformed
+    (not an ordered ascending array, missing key/color, a non-final max that isn't a
+    number, or a final max that isn't null).
 
 Run:  python3 validate.py [path/to/weeks.json]   (defaults to data/weeks.json)
 Used by build.sh BEFORE inline/encrypt so a bad schema never deploys.
@@ -17,6 +18,47 @@ import os
 
 # Required numeric fields inside each week's `metrics` object.
 REQUIRED_METRICS = ["cpl", "ctr", "frequency", "enquiries", "spend"]
+
+# Required top-level zone-band arrays (ordered ascending upper-bound, final max=null).
+REQUIRED_BAND_ARRAYS = ["cpl_bands", "ctr_bands", "frequency_bands"]
+
+
+def validate_band_array(name, bands, errors):
+    """Validate one ordered ascending upper-bound band array; append problems to errors."""
+    if bands is None:
+        errors.append(f"top-level: missing required `{name}` array")
+        return
+    if not isinstance(bands, list) or len(bands) == 0:
+        errors.append(f"top-level: `{name}` must be a non-empty array")
+        return
+    prev_max = None
+    for i, band in enumerate(bands):
+        where = f"{name}[{i}]"
+        if not isinstance(band, dict):
+            errors.append(f"{where}: band must be an object")
+            continue
+        if not band.get("key"):
+            errors.append(f"{where}: missing `key`")
+        if not band.get("color"):
+            errors.append(f"{where}: missing `color`")
+        if "max" not in band:
+            errors.append(f"{where}: missing `max`")
+            continue
+        mx = band["max"]
+        is_final = i == len(bands) - 1
+        if is_final:
+            if mx is not None:
+                errors.append(f"{where}: final band `max` must be null (got {mx!r})")
+        else:
+            if not isinstance(mx, (int, float)) or isinstance(mx, bool):
+                errors.append(f"{where}: non-final band `max` must be a number (got {mx!r})")
+            else:
+                if prev_max is not None and mx <= prev_max:
+                    errors.append(
+                        f"{where}: `max` ({mx}) must be greater than previous band's max ({prev_max}) — bands must be ordered ascending"
+                    )
+                prev_max = mx
+
 
 # Required string/display fields inside each week's `cards` object.
 REQUIRED_CARDS = [
@@ -53,40 +95,10 @@ def main():
         print(f"FAIL: {path} is not valid JSON: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # --- top-level cpl_bands ---------------------------------------------
+    # --- top-level band arrays -------------------------------------------
+    for name in REQUIRED_BAND_ARRAYS:
+        validate_band_array(name, data.get(name), errors)
     bands = data.get("cpl_bands")
-    if bands is None:
-        errors.append("top-level: missing required `cpl_bands` array")
-    elif not isinstance(bands, list) or len(bands) == 0:
-        errors.append("top-level: `cpl_bands` must be a non-empty array")
-    else:
-        prev_max = None
-        for i, band in enumerate(bands):
-            where = f"cpl_bands[{i}]"
-            if not isinstance(band, dict):
-                errors.append(f"{where}: band must be an object")
-                continue
-            if not band.get("key"):
-                errors.append(f"{where}: missing `key`")
-            if not band.get("color"):
-                errors.append(f"{where}: missing `color`")
-            if "max" not in band:
-                errors.append(f"{where}: missing `max`")
-                continue
-            mx = band["max"]
-            is_final = i == len(bands) - 1
-            if is_final:
-                if mx is not None:
-                    errors.append(f"{where}: final band `max` must be null (got {mx!r})")
-            else:
-                if not isinstance(mx, (int, float)) or isinstance(mx, bool):
-                    errors.append(f"{where}: non-final band `max` must be a number (got {mx!r})")
-                else:
-                    if prev_max is not None and mx <= prev_max:
-                        errors.append(
-                            f"{where}: `max` ({mx}) must be greater than previous band's max ({prev_max}) — bands must be ordered ascending"
-                        )
-                    prev_max = mx
 
     # --- weeks -----------------------------------------------------------
     weeks = data.get("weeks")

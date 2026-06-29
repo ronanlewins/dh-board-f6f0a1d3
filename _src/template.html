@@ -256,9 +256,10 @@
   button.card:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
   .expand-hint {
     display: inline-block; margin-top: 10px; color: var(--muted);
-    font-size: 12px; line-height: 1; transition: transform .15s ease;
+    font-size: 12px; line-height: 1;
   }
-  button.card[aria-expanded="true"] .expand-hint { transform: rotate(180deg); }
+  .hint-arrow { display: inline-block; transition: transform .15s ease; }
+  button.card[aria-expanded="true"] .expand-hint .hint-arrow { transform: rotate(180deg); }
   .card-panel {
     margin-top: 14px; padding-top: 12px;
     border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
@@ -308,6 +309,17 @@ const METRICS = {
   spend:     { key: "spend",     label: "Spend",             unit: "€", format: "money",   lowerIsBetter: false },
   enquiries: { key: "enquiries", label: "Enquiries",         unit: "",  format: "count",   lowerIsBetter: false }
 };
+
+// Zone bands per metric, passed in via data (never hardcoded thresholds in this repo).
+// Quality metrics (cost/click/freshness) get bands so the card shows "where it should be".
+// Volume metrics (spend, enquiries) have no good/bad zone, so no bands.
+function bandsFor(metricKey) {
+  if (!DATA) return null;
+  if (metricKey === "cpl")       return DATA.cpl_bands || null;
+  if (metricKey === "ctr")       return DATA.ctr_bands || null;
+  if (metricKey === "frequency") return DATA.frequency_bands || null;
+  return null;
+}
 
 const LINE = "#cf9a3a";       // gold trend/series line
 const SEL_DOT = "#cf9a3a";    // emphasised (selected) point
@@ -470,11 +482,11 @@ function metricCard(o) {
   const cfg = METRICS[metricKey];
   const panelId = `panel-${metricKey}`;
   const aria = `${label} over ${series.pts.length} week${series.pts.length > 1 ? "s" : ""}`;
-  const svg = svgChart({ pts: series.pts, gaps: series.gaps, cfg, selectedIdx: selectedIndex, mini: true, aria });
+  const svg = svgChart({ pts: series.pts, gaps: series.gaps, cfg, selectedIdx: selectedIndex, bands: bandsFor(metricKey), mini: true, aria });
 
   return `<button type="button" class="card metric-card${inner.zoneCls}${wideCls}" data-metric="${metricKey}" aria-expanded="false" aria-controls="${panelId}"${inner.style ? ` style="${inner.style}"` : ""}>
       ${inner.html}
-      <span class="expand-hint" aria-hidden="true">▾ details</span>
+      <span class="expand-hint" aria-hidden="true"><span class="hint-arrow">▾</span> details</span>
       <div class="card-panel" id="${panelId}" hidden>${svg}</div>
     </button>`;
 }
