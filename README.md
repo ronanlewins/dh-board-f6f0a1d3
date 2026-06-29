@@ -10,8 +10,9 @@ A single-page, mobile-first dashboard for Conor. One URL, updated each week.
 ## How it works
 
 - `_src/template.html` — the dashboard markup/CSS/JS, with a `__DATA__` marker where the data gets inlined. **Committed** (no data, no secrets).
-- `data/weeks.json` — all weeks, newest last. **Gitignored** (local only) so the raw numbers never reach the public repo. The dashboard shows the **last** entry as "this week" and draws the cost-per-enquiry trend across all entries.
-- `build.sh` — inlines `data/weeks.json` into the template (→ `_build/index.html`), then encrypts it with StatiCrypt using the password from `.staticrypt-pw` → produces the served `index.html`.
+- `data/weeks.json` — all weeks, newest last, plus the top-level `cpl_bands` constant. **Gitignored** (local only) so the raw numbers never reach the public repo. The page defaults to the **most recent** week, but a week-ending **dropdown** lets Conor browse any past week; the selected week drives every card and the trend (see [Selected-week behaviour](#selected-week-behaviour)).
+- `validate.py` — the **schema validator**. Fails loudly (nonzero exit) and names the offending week/field if `weeks.json` is missing any required numeric, card/band field, or has a malformed `cpl_bands`. `build.sh` runs it FIRST, so a bad schema never deploys.
+- `build.sh` — the build contract (see [Build contract](#build-contract)). Validates the schema, inlines `data/weeks.json` into the template (→ `_build/index.html`), runs pre-encryption checks, encrypts with StatiCrypt using the password from `.staticrypt-pw`, then enforces a post-encryption size gate → produces the served `index.html`.
 - `index.html` — the **encrypted** page (the only thing served). Regenerated every build.
 
 ## Weekly update (done by `/meta-weekly-report`)
@@ -26,7 +27,34 @@ A single-page, mobile-first dashboard for Conor. One URL, updated each week.
 
 > Requires: Node (for `npx staticrypt`) + Python 3 (for the inline step). Both already present on this machine.
 
-## Week object schema
+## Data schema
+
+`data/weeks.json` has three top-level keys plus the per-week array:
+
+```json
+{
+  "updated": "2026-06-29",
+  "sheet_url": "https://docs.google.com/spreadsheets/d/.../edit",
+  "cpl_bands": [
+    { "key": "green", "max": 40,   "color": "#6f9f6a" },
+    { "key": "amber", "max": 55,   "color": "#caa53d" },
+    { "key": "red",   "max": null, "color": "#bd312e" }
+  ],
+  "weeks": [ { /* week object, see below */ } ]
+}
+```
+
+### `cpl_bands` (top-level constant)
+
+The green/amber/red zone bands drawn **behind the cost-per-enquiry trend chart**. An **ordered, ascending array** of `{ key, max, color }`:
+
+- `key` — string band name (non-empty).
+- `max` — **inclusive upper EUR bound** for that band, as a **number** (`int`/`float`). Bands must be strictly ascending by `max`. The **final** band's `max` MUST be `null` (= "everything above"). EUR is implied by CPL — there is **no `unit` field**.
+- `color` — hex string for the band fill (non-empty).
+
+The chart's y-axis top = the last finite `max` × a headroom factor; the red band fills above the amber bound. **Thresholds are NOT hardcoded in this repo** — they are computed in the workspace from `meta-ads-benchmarks.md` (§6 CPL bands) and passed in here. It is a constant: the weekly pipeline only changes it if that benchmark ceiling changes.
+
+### Week object
 
 ```json
 {
@@ -48,27 +76,69 @@ A single-page, mobile-first dashboard for Conor. One URL, updated each week.
     "click_rate": "1.5%",
     "click_rate_band": "great",
     "click_rate_band_label": "Great",
+    "audience_freshness": "1.5×",
+    "audience_freshness_sub": "Each person saw the ad about 1.5 times — plenty of fresh people still to reach.",
+    "audience_freshness_band": "great",
+    "audience_freshness_band_label": "Great",
     "best_ad": "V1"
   },
-  "metrics": { "cpl": 11.65, "enquiries": 2, "spend": 23.30 },
+  "metrics": { "cpl": 11.65, "ctr": 1.5, "frequency": 1.50, "enquiries": 2, "spend": 23.30 },
   "working": ["..."],
   "not_working": ["..."],
   "next_move": "One clear action in plain English."
 }
 ```
 
-`metrics` holds the numeric values used to draw the trend line — keep them numbers, not strings.
+### `metrics` (all numbers — drive the charts)
 
-### Colour bands (cost per enquiry + click rate)
+Every value in `metrics` MUST be a **number**, not a string. All five are **required** (the validator fails the build if any is missing or non-numeric). They feed the cost-per-enquiry trend line and the per-card click-to-expand mini-graphs:
 
-Each of those two cards can carry a colour pill so Conor can scan good/bad at a glance:
+| Field | Type | Notes |
+|---|---|---|
+| `cpl` | number | True cost per enquiry where available, else Meta CPL (EUR). |
+| `ctr` | number | Link CTR as a percent value, e.g. `1.5` = 1.5%. **(added in the redesign)** |
+| `frequency` | number | Week's frequency, e.g. `2.13`. Drives the audience-freshness card. **(added in the redesign)** |
+| `enquiries` | number | Count of enquiries. |
+| `spend` | number | EUR spent. |
 
-- `*_band` — one of `great | good | watch | high | low | poor`. Maps to colour: green (great/good), amber (watch), orange (high/low), red (poor). Set from the band the weekly report diagnoses (benchmarks live in the workspace, not here — do not hardcode thresholds in this repo).
-- `*_band_label` — optional plain-English word shown on the pill (defaults: Great / Good / Watch / Running high / Running low / Needs attention).
+### `cards` — zone bands + audience freshness
+
+Three cards carry a colour band so Conor can scan good/bad at a glance: **cost per enquiry**, **click rate**, and **audience freshness**. Spend, enquiries, and best ad stay neutral (no band).
+
+- `*_band` — one of `great | good | watch | high | low | poor`. Maps to colour: green (`great`/`good`), amber (`watch`), orange (`high`/`low`), red (`poor`). Set from the band the weekly report diagnoses — benchmarks live in the workspace, **do not hardcode thresholds in this repo**.
+- `*_band_label` — plain-English word shown on the pill (defaults: Great / Good / Watch / Running high / Running low / Needs attention).
+
+**Audience-freshness card (added in the redesign — the "when do we change the ad" metric):** the Frequency metric in plain English. Four required fields:
+
+| Field | Type | Notes |
+|---|---|---|
+| `audience_freshness` | string | Frequency rendered `"N.N×"` (one decimal + `×`), e.g. `"2.1×"`. |
+| `audience_freshness_sub` | string | Short plain-English helper sentence shown under the number. |
+| `audience_freshness_band` | string | `great`/`good`/`watch`/`high`/`poor` (no `low` — frequency only fails high), from `meta-ads-benchmarks.md §1`. |
+| `audience_freshness_band_label` | string | Pill word: Great / Good / Watch / Running high / Needs attention. |
+
+### Selected-week behaviour
+
+The page holds a single `selectedIndex` state. The week **dropdown** near the title lists every entry in `weeks` and defaults to the most recent (`selectedIndex = weeks.length - 1`). On every render:
+
+- **Cards, headline, status, working/not-working, next move** read from `weeks[selectedIndex]` — switching the dropdown re-renders all of them from that one week.
+- **The trend chart and the per-card expand mini-graphs** plot `weeks.slice(0, selectedIndex + 1)` — history *as of* the selected week, never future data. The trend's plotted-point count = `selectedIndex + 1`; the selected week's point is emphasised.
+
+When `status` is `measurement`, the dashboard dims the band pills and appends "· early" — the colours show but read as provisional, not a verdict.
 
 ### Links
 
 - **`video_url`** (per week) — the weekly Zoom/Loom walkthrough recording. When set, a gold "Watch this week's walkthrough" button shows at the top. Leave `""` to hide it. Ronan's weekly ritual: record a short walkthrough → paste the link here → send Conor the dashboard URL + the video plays right from it.
 - **`sheet_url`** (top-level, set once) — the Google Sheet. Renders a "Open the numbers sheet →" link near the bottom + in the footer, so Conor can dig into the raw numbers himself. Access to the Sheet is controlled separately by Google sharing.
 
-When `status` is `measurement`, the dashboard automatically dims the pills and appends "· early" — the colours show but read as provisional, not a verdict. Leave a band field out to show no pill.
+## Build contract
+
+`build.sh` runs **five steps in this exact order** and exits nonzero (blocking `publish.sh` from pushing) if any fails:
+
+1. **Validate** — `python3 validate.py` against `data/weeks.json`. Fails if any required numeric (`cpl`, `ctr`, `frequency`, `enquiries`, `spend`), any required card/band field (incl. the 4 audience-freshness fields), or `cpl_bands` is missing/malformed.
+2. **Inline + render** — inline `data/weeks.json` into `_src/template.html` → `_build/index.html`.
+3. **Pre-encryption checks** on `_build/index.html` — light theme present, expected card/zone markup present, and **WCAG 2.2 AA contrast** for each band number on its washed background. Abort on failure.
+4. **Encrypt** — StatiCrypt `_build/index.html` (password from `.staticrypt-pw`) → served `index.html`.
+5. **Post-encryption size gate** — fail if the encrypted `index.html` **> 200KB** (204800 bytes). The size check must come after encryption because the encrypted file only exists then.
+
+`publish.sh` calls `build.sh` and pushes **only if it exited 0** — a validator/check/size failure blocks the deploy. The threshold ceiling (200KB) leaves room for the interactive JS plus years of weekly data.
