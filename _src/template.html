@@ -228,9 +228,47 @@
     padding-bottom: 2px;
   }
   svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+  /* Week-ending picker (top of page) */
+  .toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    margin-bottom: 20px;
+  }
+  .toolbar label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  #week-select {
+    font: inherit; font-size: 14.5px; color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 34px 9px 13px; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23787469' stroke-width='1.6' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.03);
+  }
+  #week-select:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+
+  /* Numeric cards are real <button> controls (click-to-expand). Reset native button chrome. */
+  button.card {
+    font: inherit; text-align: left; width: 100%;
+    color: var(--text); cursor: pointer; display: block;
+    appearance: none; -webkit-appearance: none;
+  }
+  button.card:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+  .expand-hint {
+    display: inline-block; margin-top: 10px; color: var(--muted);
+    font-size: 12px; line-height: 1; transition: transform .15s ease;
+  }
+  button.card[aria-expanded="true"] .expand-hint { transform: rotate(180deg); }
+  .card-panel {
+    margin-top: 14px; padding-top: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+  }
+  .card-panel[hidden] { display: none; }
+
   @media (max-width: 420px) {
     h1 { font-size: 26px; }
     .card .value { font-size: 24px; }
+    #week-select { width: 100%; }
   }
 </style>
 </head>
@@ -261,25 +299,24 @@ const BANDS = {
   poor:  { t: "Needs attention",  tc: "#b22b27", bg: "#fbeceb", bc: "#bd312e", icon: "!" }
 };
 
-// Render one zone-coded numeric card with all three non-colour cues (border + icon + label).
-function zoneCard(label, value, sub, band, bandLabel, provisional, wide) {
-  const b = BANDS[band];
-  if (!b) {
-    // No band → fall back to a neutral block so we never deploy a broken card.
-    return `<div class="card${wide ? " wide" : ""}"><div class="label">${esc(label)}</div><div class="value">${esc(value || "—")}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}</div>`;
-  }
-  const word = (bandLabel || b.t) + (provisional ? " · early" : "");
-  return `
-    <div class="card zone${wide ? " wide" : ""}" style="--zc:${b.tc};--zbg:${b.bg};--zb:${b.bc}">
-      <div class="zone-head">
-        <span class="zone-icon" aria-hidden="true">${b.icon}</span>
-        <span class="label">${esc(label)}</span>
-      </div>
-      <div class="value">${esc(value || "—")}</div>
-      ${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
-      <div class="zone-label${provisional ? " early" : ""}">${esc(word)}</div>
-    </div>`;
-}
+// Metric configs drive the one chart helper. unit/format handle € vs % vs count vs ×.
+// metricKey maps each card to its per-week numeric series in weeks[].metrics.
+const METRICS = {
+  cpl:       { key: "cpl",       label: "Cost per enquiry",  unit: "€", format: "money",   lowerIsBetter: true  },
+  ctr:       { key: "ctr",       label: "Click rate",        unit: "%", format: "percent", lowerIsBetter: false },
+  frequency: { key: "frequency", label: "Audience freshness",unit: "×", format: "freq",    lowerIsBetter: true  },
+  spend:     { key: "spend",     label: "Spend",             unit: "€", format: "money",   lowerIsBetter: false },
+  enquiries: { key: "enquiries", label: "Enquiries",         unit: "",  format: "count",   lowerIsBetter: false }
+};
+
+const LINE = "#cf9a3a";       // gold trend/series line
+const SEL_DOT = "#cf9a3a";    // emphasised (selected) point
+const DIM_DOT = "#d8b878";    // earlier points
+
+// ---- single application state -------------------------------------------------
+let DATA = null;
+let WEEKS = [];
+let selectedIndex = 0;
 
 function shortWeek(w) {
   // "2026-06-21" -> "21 Jun"
@@ -291,80 +328,206 @@ function shortWeek(w) {
   return w.week_label || w.week_ending || "";
 }
 
-// Cost-per-enquiry trend chart. Healthy = under €40 (the operating range for this funnel).
-// Note: P2 replaces this with the generalised SVG chart helper; kept here, light-themed, so the page still renders.
-function sparkline(weeks, key, unit) {
-  const HEALTHY = 40; // €/enquiry: at or below this is a healthy cost for this kind of campaign
-  const series = weeks
-    .filter(w => w.metrics && typeof w.metrics[key] === "number")
-    .map(w => ({ v: w.metrics[key], label: shortWeek(w) }));
+// Format a metric value for display, by unit/format. Single source so card + chart agree.
+function fmtVal(cfg, v) {
+  if (typeof v !== "number" || !isFinite(v)) return "—";
+  if (cfg.format === "money")   return cfg.unit + v.toFixed(2);
+  if (cfg.format === "percent") return v + "%";
+  if (cfg.format === "freq")    return v.toFixed(1) + cfg.unit;
+  if (cfg.format === "count")   return String(v);
+  return cfg.unit + v;
+}
+// Shorter label for an axis bound.
+function fmtAxis(cfg, v) {
+  if (cfg.format === "money")   return cfg.unit + (Number.isInteger(v) ? v : v.toFixed(0));
+  if (cfg.format === "percent") return v + "%";
+  if (cfg.format === "freq")    return v.toFixed(1) + cfg.unit;
+  return String(v);
+}
 
-  if (series.length < 2) {
-    return `<p class="empty">This chart fills in as more weeks are added — you'll see the cost per enquiry move week to week. (${series.length} week so far.)</p>`;
+// Pull the numeric series for a metric across a slice of weeks. Tracks gaps so the
+// chart can render the points it HAS and label the missing ones rather than blanking.
+function buildSeries(slice, key) {
+  const pts = [];
+  let gaps = 0;
+  slice.forEach((w, i) => {
+    const v = w.metrics ? w.metrics[key] : undefined;
+    if (typeof v === "number" && isFinite(v)) pts.push({ v, label: shortWeek(w), idx: i });
+    else gaps++;
+  });
+  return { pts, gaps, total: slice.length };
+}
+
+// THE chart helper — hand-rolled inline SVG, no dependency. Drives every chart.
+// Handles null/zero/single-point, gaps, optional zone bands, and selected-point highlight.
+// opts: { pts, gaps, cfg, selectedIdx, bands, mini, aria }
+function svgChart(opts) {
+  const { pts, gaps = 0, cfg, selectedIdx, bands = null, mini = false, aria = "" } = opts;
+  const W = mini ? 320 : 640, H = mini ? 170 : 300;
+  const padL = mini ? 36 : 52, padR = mini ? 16 : 22;
+  const padTop = mini ? 26 : 44, padBot = mini ? 38 : 56;
+  const plotW = W - padL - padR, plotH = H - padTop - padBot;
+
+  if (!pts || pts.length === 0) {
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria || "No data yet")}"><text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-size="14" fill="#787469">No data yet</text></svg>`;
   }
 
-  const vals = series.map(s => s.v);
-  const maxV = Math.max(...vals);
-  const W = 640, H = 300;
-  const padL = 52, padR = 22, padTop = 44, padBot = 56;
-  const plotW = W - padL - padR, plotH = H - padTop - padBot;
-  // Scale always starts at €0 and always shows the €40 healthy line, with headroom above the highest point.
-  const yMax = Math.max(maxV * 1.25, HEALTHY + 12);
-  const x = i => padL + (series.length === 1 ? plotW / 2 : i * (plotW / (series.length - 1)));
-  const y = v => padTop + plotH * (1 - v / yMax);
+  const vals = pts.map(p => p.v);
+  const dataMax = Math.max(...vals);
+  let yMax;
+  if (bands) {
+    const finite = bands.filter(b => b.max != null).map(b => b.max);
+    const lastFinite = finite.length ? Math.max(...finite) : dataMax;
+    yMax = Math.max(lastFinite * 1.2, dataMax * 1.1); // red band sits above the amber bound
+  } else {
+    yMax = dataMax > 0 ? dataMax * 1.25 : 1;
+  }
+  const n = pts.length;
+  const xAt = i => padL + (n === 1 ? plotW / 2 : i * (plotW / (n - 1)));
+  const yAt = v => padTop + plotH * (1 - Math.max(0, Math.min(v, yMax)) / yMax);
+  const baseY = yAt(0);
 
-  const baseY = y(0), healthyY = y(HEALTHY);
-  const pts = series.map((s, i) => [x(i), y(s.v)]);
-  const line = pts.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
+  // Zone bands (trend only): faint fills stacked low→high; final band (max:null) fills to yMax.
+  let bandRects = "";
+  if (bands) {
+    let lower = 0;
+    bands.forEach(b => {
+      const upper = (b.max == null) ? yMax : b.max;
+      if (upper > lower) {
+        const yTop = yAt(upper), yBot = yAt(lower);
+        bandRects += `<rect x="${padL}" y="${yTop.toFixed(1)}" width="${plotW}" height="${(yBot - yTop).toFixed(1)}" fill="${b.color}" fill-opacity="0.13" />`;
+        if (b.max != null) {
+          bandRects += `<line x1="${padL}" y1="${yTop.toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${yTop.toFixed(1)}" stroke="${b.color}" stroke-width="1" stroke-dasharray="4 4" stroke-opacity="0.65" />`;
+          bandRects += `<text x="${(padL - 8).toFixed(1)}" y="${(yTop + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="#9a958c">${esc(fmtAxis(cfg, b.max))}</text>`;
+        }
+      }
+      lower = (b.max == null) ? yMax : b.max;
+    });
+  }
 
-  // Thin labels if the chart ever gets crowded.
-  const everyNth = series.length > 8 ? 2 : 1;
+  const coords = pts.map((p, i) => ({ x: xAt(i), y: yAt(p.v), p }));
+  const line = (n >= 2)
+    ? `<polyline points="${coords.map(c => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(" ")}" fill="none" stroke="${LINE}" stroke-width="${mini ? 2.5 : 3}" stroke-linejoin="round" stroke-linecap="round" />`
+    : "";
 
-  const dots = pts.map(([px, py], i) => {
-    const s = series[i];
-    const valLbl = `<text x="${px.toFixed(1)}" y="${(py - 14).toFixed(1)}" text-anchor="middle" font-size="17" font-weight="700" fill="#37352f">${unit}${s.v}</text>`;
+  // Thin x-labels if it ever crowds.
+  const everyNth = n > 8 ? Math.ceil(n / 8) : 1;
+  const dots = coords.map((c, i) => {
+    const isSel = c.p.idx === selectedIdx;
+    const r = isSel ? (mini ? 5 : 7) : (mini ? 3.5 : 5);
+    const ring = isSel ? `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${r + 3}" fill="none" stroke="${SEL_DOT}" stroke-opacity="0.35" stroke-width="2" />` : "";
+    const valLbl = `<text x="${c.x.toFixed(1)}" y="${(c.y - (mini ? 9 : 14)).toFixed(1)}" text-anchor="middle" font-size="${mini ? (isSel ? 15 : 13) : 17}" font-weight="${isSel ? 700 : 600}" fill="${isSel ? "#37352f" : "#787469"}">${esc(fmtVal(cfg, c.p.v))}</text>`;
     const wkLbl = (i % everyNth === 0)
-      ? `<text x="${px.toFixed(1)}" y="${(baseY + 26).toFixed(1)}" text-anchor="middle" font-size="14" fill="#787469">${esc(s.label)}</text>`
+      ? `<text x="${c.x.toFixed(1)}" y="${(baseY + (mini ? 18 : 26)).toFixed(1)}" text-anchor="middle" font-size="${mini ? 12 : 14}" font-weight="${isSel ? 700 : 400}" fill="#787469">${esc(c.p.label)}</text>`
       : "";
-    return `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="5" fill="#cf9a3a" stroke="#ffffff" stroke-width="2" />${valLbl}${wkLbl}`;
+    return `${ring}<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${r}" fill="${isSel ? SEL_DOT : DIM_DOT}" stroke="#ffffff" stroke-width="2" />${valLbl}${wkLbl}`;
   }).join("");
 
-  const last = series[series.length - 1].v;
-  const inHealthy = last <= HEALTHY;
+  const axis = `<line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${baseY.toFixed(1)}" stroke="#d8d5cf" stroke-width="1.5" />`;
+  const gapNote = gaps > 0
+    ? `<text x="${padL}" y="${(padTop - 8).toFixed(1)}" font-size="12" fill="#9a958c">${gaps} earlier week${gaps > 1 ? "s" : ""} had no value</text>`
+    : "";
 
-  return `
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cost per enquiry, week by week. Latest ${unit}${last}.">
-      <!-- healthy zone -->
-      <rect x="${padL}" y="${healthyY.toFixed(1)}" width="${plotW}" height="${(baseY - healthyY).toFixed(1)}" fill="#6f9f6a" fill-opacity="0.14" />
-      <line x1="${padL}" y1="${healthyY.toFixed(1)}" x2="${padL + plotW}" y2="${healthyY.toFixed(1)}" stroke="#6f9f6a" stroke-width="1.5" stroke-dasharray="5 5" />
-      <text x="${padL + 6}" y="${(healthyY - 8).toFixed(1)}" font-size="14" fill="#2e6e36" font-weight="600">Healthy zone — under ${unit}${HEALTHY}</text>
-      <!-- axis -->
-      <line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${padL + plotW}" y2="${baseY.toFixed(1)}" stroke="#d8d5cf" stroke-width="1.5" />
-      <text x="${(padL - 10).toFixed(1)}" y="${(healthyY + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#9a958c">${unit}${HEALTHY}</text>
-      <text x="${(padL - 10).toFixed(1)}" y="${(baseY + 5).toFixed(1)}" text-anchor="end" font-size="13" fill="#9a958c">${unit}0</text>
-      <!-- trend line -->
-      <polyline points="${line}" fill="none" stroke="#cf9a3a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" />
-      ${dots}
-    </svg>
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${bandRects}${axis}${line}${dots}${gapNote}</svg>`;
+}
+
+// Inner content shared by static and button-wrapped cards (zone or neutral).
+function cardInner(label, value, sub, band, bandLabel, provisional) {
+  const b = band ? BANDS[band] : null;
+  if (b) {
+    const word = (bandLabel || b.t) + (provisional ? " · early" : "");
+    return {
+      zoneCls: " zone",
+      style: `--zc:${b.tc};--zbg:${b.bg};--zb:${b.bc}`,
+      html: `<div class="zone-head"><span class="zone-icon" aria-hidden="true">${b.icon}</span><span class="label">${esc(label)}</span></div>
+        <div class="value">${esc(value || "—")}</div>
+        ${sub ? `<div class="sub">${esc(sub)}</div>` : ""}
+        <div class="zone-label${provisional ? " early" : ""}">${esc(word)}</div>`
+    };
+  }
+  return {
+    zoneCls: "",
+    style: "",
+    html: `<div class="label">${esc(label)}</div><div class="value">${esc(value || "—")}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ""}`
+  };
+}
+
+// A numeric metric card: a real <button> that expands to an inline mini-graph of its
+// series over weeks.slice(0, selectedIndex+1). Hides the expand control when no current value.
+function metricCard(o) {
+  const { label, value, sub, band, bandLabel, provisional, wide, metricKey } = o;
+  const inner = cardInner(label, value, sub, band, bandLabel, provisional);
+  const wideCls = wide ? " wide" : "";
+  const slice = WEEKS.slice(0, selectedIndex + 1);
+  const series = buildSeries(slice, metricKey);
+  const hasValue = value != null && value !== "" && series.pts.length >= 1;
+
+  // No current value → plain, non-interactive card with no expand control (render fallback).
+  if (!hasValue) {
+    return `<div class="card${inner.zoneCls}${wideCls}"${inner.style ? ` style="${inner.style}"` : ""}>${inner.html}</div>`;
+  }
+
+  const cfg = METRICS[metricKey];
+  const panelId = `panel-${metricKey}`;
+  const aria = `${label} over ${series.pts.length} week${series.pts.length > 1 ? "s" : ""}`;
+  const svg = svgChart({ pts: series.pts, gaps: series.gaps, cfg, selectedIdx: selectedIndex, mini: true, aria });
+
+  return `<button type="button" class="card metric-card${inner.zoneCls}${wideCls}" data-metric="${metricKey}" aria-expanded="false" aria-controls="${panelId}"${inner.style ? ` style="${inner.style}"` : ""}>
+      ${inner.html}
+      <span class="expand-hint" aria-hidden="true">▾ details</span>
+      <div class="card-panel" id="${panelId}" hidden>${svg}</div>
+    </button>`;
+}
+
+// Cost-per-enquiry trend with cpl_bands zone bands behind the line, over the selected history.
+function trendChart() {
+  const slice = WEEKS.slice(0, selectedIndex + 1);
+  const bands = (DATA && DATA.cpl_bands) || null;
+  const cfg = METRICS.cpl;
+  const s = buildSeries(slice, "cpl");
+
+  if (s.pts.length === 0) {
+    return `<p class="empty">This chart fills in as weeks are added — you'll see the cost per enquiry move week to week.</p>`;
+  }
+
+  const aria = `Cost per enquiry over ${s.pts.length} week${s.pts.length > 1 ? "s" : ""}`;
+  const svg = svgChart({ pts: s.pts, gaps: s.gaps, cfg, selectedIdx: selectedIndex, bands, mini: false, aria });
+
+  const last = s.pts[s.pts.length - 1].v;
+  let zoneWord = "the high zone";
+  if (bands) {
+    const hit = bands.find(b => b.max == null || last <= b.max) || bands[bands.length - 1];
+    zoneWord = hit.key === "green" ? "the healthy zone" : hit.key === "amber" ? "the watch zone" : "the high zone";
+  }
+
+  return `${svg}
     <p class="empty" style="font-style:normal;margin-top:12px;color:#787469;font-size:14px;line-height:1.55;">
-      <strong style="color:#37352f;">What this shows:</strong> each dot is one week. It's what we pay in Facebook ads to get one enquiry — <strong style="color:#37352f;">lower is better</strong>.
-      As long as the line stays in the green band (under ${unit}${HEALTHY}), the cost is healthy.
-      Right now it's at <strong style="color:#37352f;">${unit}${last}</strong>${inHealthy ? ", well inside the healthy range" : ""}.
+      <strong style="color:#37352f;">What this shows:</strong> each dot is one week — what we pay in Facebook ads to get one enquiry, and <strong style="color:#37352f;">lower is better</strong>.
+      The bands behind the line are the zones: green is healthy, amber is worth watching, red is too high.
+      Right now it's <strong style="color:#37352f;">${esc(fmtVal(cfg, last))}</strong>, sitting in ${zoneWord}.
     </p>`;
 }
 
-function render(data) {
-  const weeks = data.weeks || [];
-  const w = weeks[weeks.length - 1];
+// Render everything from the single selectedIndex. Re-run on every week switch.
+function renderAll() {
   const app = document.getElementById("app");
+  const w = WEEKS[selectedIndex];
   if (!w) { app.innerHTML = '<p class="week">No data yet.</p>'; return; }
   const st = STATUS[w.status] || STATUS.measurement;
   const c = w.cards || {};
   const prov = w.status === "measurement";
 
+  const options = WEEKS.map((wk, i) =>
+    `<option value="${i}"${i === selectedIndex ? " selected" : ""}>${esc(wk.week_label || shortWeek(wk))}</option>`
+  ).join("");
+
   app.innerHTML = `
     <p class="brand">Dark Horse · Meta Ads</p>
     <h1>This week's ad performance</h1>
+    <div class="toolbar">
+      <label for="week-select">Week ending</label>
+      <select id="week-select" aria-label="Choose which week to view">${options}</select>
+    </div>
     <p class="week">${esc(w.week_label || w.week_ending)}</p>
 
     <div class="status ${st.cls}"><span class="dot"></span>${esc(w.status_label || st.label)}</div>
@@ -375,11 +538,11 @@ function render(data) {
 
     <p class="section-label">The numbers</p>
     <div class="cards">
-      <div class="card"><div class="label">Spend</div><div class="value">${esc(c.spend || "—")}</div></div>
-      <div class="card"><div class="label">Enquiries</div><div class="value">${esc(c.enquiries || "—")}</div>${c.enquiries_sub ? `<div class="sub">${esc(c.enquiries_sub)}</div>` : ""}</div>
-      ${zoneCard("Cost per enquiry", c.cost_per_enquiry, c.cost_per_enquiry_sub, c.cost_per_enquiry_band, c.cost_per_enquiry_band_label, prov, false)}
-      ${zoneCard("Click rate", c.click_rate, c.click_rate_sub, c.click_rate_band, c.click_rate_band_label, prov, false)}
-      ${zoneCard("Audience freshness", c.audience_freshness, c.audience_freshness_sub, c.audience_freshness_band, c.audience_freshness_band_label, prov, true)}
+      ${metricCard({ label: "Spend", value: c.spend, metricKey: "spend" })}
+      ${metricCard({ label: "Enquiries", value: c.enquiries, sub: c.enquiries_sub, metricKey: "enquiries" })}
+      ${metricCard({ label: "Cost per enquiry", value: c.cost_per_enquiry, sub: c.cost_per_enquiry_sub, band: c.cost_per_enquiry_band, bandLabel: c.cost_per_enquiry_band_label, provisional: prov, metricKey: "cpl" })}
+      ${metricCard({ label: "Click rate", value: c.click_rate, sub: c.click_rate_sub, band: c.click_rate_band, bandLabel: c.click_rate_band_label, provisional: prov, metricKey: "ctr" })}
+      ${metricCard({ label: "Audience freshness", value: c.audience_freshness, sub: c.audience_freshness_sub, band: c.audience_freshness_band, bandLabel: c.audience_freshness_band_label, provisional: prov, wide: true, metricKey: "frequency" })}
       <div class="card wide"><div class="label">Best performing ad</div><div class="value">${esc(c.best_ad || "—")}</div></div>
     </div>
     <div class="legend">
@@ -390,7 +553,7 @@ function render(data) {
     </div>
 
     <p class="section-label">Cost per enquiry over time</p>
-    <div class="trend">${sparkline(weeks, "cpl", "€")}</div>
+    <div class="trend">${trendChart()}</div>
 
     <div class="block">
       <h3><span class="icon">✓</span>What's working</h3>
@@ -414,20 +577,48 @@ function render(data) {
         <li><strong>Keep an eye</strong> — fine for now, just worth watching. No change yet.</li>
         <li><strong>Needs attention</strong> — something's off. We change one thing (usually the ad, the audience, or the landing page) and give it two weeks before judging.</li>
         <li><strong>“early”</strong> — too soon to read. Week-one numbers bounce around, so we wait before acting.</li>
+        <li><strong>Tap a number</strong> to see how it has moved week to week.</li>
       </ul>
     </div>
 
-    ${data.sheet_url ? `<a class="sheet-link" href="${esc(data.sheet_url)}" target="_blank" rel="noopener">Want the full detail? Open the numbers sheet →</a>` : ""}
+    ${DATA.sheet_url ? `<a class="sheet-link" href="${esc(DATA.sheet_url)}" target="_blank" rel="noopener">Want the full detail? Open the numbers sheet →</a>` : ""}
 
     <footer>
       Updated automatically each week from the Meta Ads dashboard.<br />
-      Last updated: ${esc(data.updated || "—")} · Prepared by Ronan.${data.sheet_url ? ` · <a href="${esc(data.sheet_url)}" target="_blank" rel="noopener">Full sheet</a>` : ""}
+      Last updated: ${esc(DATA.updated || "—")} · Prepared by Ronan.${DATA.sheet_url ? ` · <a href="${esc(DATA.sheet_url)}" target="_blank" rel="noopener">Full sheet</a>` : ""}
     </footer>`;
+
+  wireEvents();
 }
 
-// Data is inlined at build time (see build.sh), then the whole page is encrypted with StatiCrypt.
-const DATA = __DATA__;
-render(DATA);
+// Attach listeners after each render (innerHTML wipes the old ones).
+function wireEvents() {
+  const app = document.getElementById("app");
+  const sel = app.querySelector("#week-select");
+  if (sel) sel.addEventListener("change", e => {
+    const i = parseInt(e.target.value, 10);
+    if (!Number.isNaN(i) && i >= 0 && i < WEEKS.length) { selectedIndex = i; renderAll(); }
+  });
+  app.querySelectorAll(".metric-card").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!expanded));
+      const panel = btn.querySelector(".card-panel");
+      if (panel) panel.hidden = expanded; // hidden becomes the OLD state's opposite
+    });
+  });
+}
+
+// Entry: data inlined at build time (see build.sh), then the page is StatiCrypt-encrypted.
+function render(data) {
+  DATA = data;
+  WEEKS = data.weeks || [];
+  selectedIndex = WEEKS.length - 1; // default to the most recent week
+  renderAll();
+}
+
+const DATA_RAW = __DATA__;
+render(DATA_RAW);
 </script>
 </body>
 </html>
