@@ -678,7 +678,9 @@ function renderWeekly() {
 // short funnel breakdown for cumulative metrics like CAC (breakdown, no series).
 function monthlyCard(p, slice) {
   const inner = cardInner(p.label, p.value, p.sub, p.band || null, p.band_label || null, false);
-  const badge = `<span class="rank-badge rank-${p.rank}">#${p.rank} · ${esc(p.role || "")}</span>`;
+  const badge = p.rank ? `<span class="rank-badge rank-${p.rank}">#${p.rank} · ${esc(p.role || "")}</span>` : "";
+  const wideCls = p.wide ? " wide" : "";
+  const id = p.rank || p.seriesKey || "x";
 
   let panel = "";
   if (p.seriesKey) {
@@ -693,10 +695,10 @@ function monthlyCard(p, slice) {
   }
 
   if (!panel) {
-    return `<div class="card${inner.zoneCls}"${inner.style ? ` style="${inner.style}"` : ""}>${badge}${inner.html}</div>`;
+    return `<div class="card${inner.zoneCls}${wideCls}"${inner.style ? ` style="${inner.style}"` : ""}>${badge}${inner.html}</div>`;
   }
-  const panelId = `mpanel-${p.rank}`;
-  return `<button type="button" class="card metric-card${inner.zoneCls}" aria-expanded="false" aria-controls="${panelId}"${inner.style ? ` style="${inner.style}"` : ""}>
+  const panelId = `mpanel-${id}`;
+  return `<button type="button" class="card metric-card${inner.zoneCls}${wideCls}" aria-expanded="false" aria-controls="${panelId}"${inner.style ? ` style="${inner.style}"` : ""}>
       ${badge}${inner.html}
       <span class="expand-hint" aria-hidden="true"><span class="hint-arrow">▾</span> last 4 weeks</span>
       <div class="card-panel" id="${panelId}" hidden>${panel}</div>
@@ -735,6 +737,7 @@ function renderMonthly() {
   const slice = WEEKS.slice(-4); // the last 4 weeks = the current cycle
 
   const primary = (cy.primary || []).map(p => monthlyCard(p, slice)).join("");
+  const creative = (cy.creative || []).map(p => monthlyCard(p, slice)).join("");
 
   // Trial-funnel cards = the funnel items NOT already promoted to the ranked row.
   const promoted = ["spend", "enquir", "cost per enquiry"];
@@ -754,6 +757,9 @@ function renderMonthly() {
 
     <p class="section-label">Cost per enquiry across the cycle</p>
     <div class="trend">${monthlyTrend(slice)}</div>
+
+    ${creative ? `<p class="section-label">The creative <span class="rank-hint">— is the ad wearing out? · tap for the last 4 weeks</span></p>
+    <div class="cards">${creative}</div>` : ""}
 
     ${secondary ? `<p class="section-label">The trial funnel</p>
     <div class="cards">${secondary}</div>` : ""}
