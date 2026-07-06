@@ -258,6 +258,28 @@
   }
   #week-select:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
 
+  /* Top-level view tabs — switch between the weekly report and the 4-week cycle report */
+  .tabs {
+    display: flex; gap: 6px; margin: 6px 0 10px;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 11px; padding: 4px;
+  }
+  .tab {
+    flex: 1; font: inherit; font-size: 14px; font-weight: 600;
+    color: var(--muted); background: transparent;
+    border: 0; border-radius: 8px; padding: 10px 8px; cursor: pointer;
+    appearance: none; -webkit-appearance: none; text-align: center;
+    transition: background .12s ease, color .12s ease;
+  }
+  .tab[aria-selected="true"] {
+    background: var(--gold-ink); color: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 15, 15, 0.08);
+  }
+  .tab:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+  .view-caption {
+    margin: 0 0 20px; color: var(--muted); font-size: 12.5px; font-style: italic;
+  }
+
   /* Numeric cards are real <button> controls (click-to-expand). Reset native button chrome. */
   button.card {
     font: inherit; text-align: left; width: 100%;
@@ -340,6 +362,7 @@ const DIM_DOT = "#d8b878";    // earlier points
 let DATA = null;
 let WEEKS = [];
 let selectedIndex = 0;
+let activeView = "weekly"; // "weekly" (this week) | "monthly" (last 4 weeks / cycle)
 
 function shortWeek(w) {
   // "2026-06-21" -> "21 Jun"
@@ -572,11 +595,11 @@ function renderAllTime() {
     <hr class="view-rule" />`;
 }
 
-// Render everything from the single selectedIndex. Re-run on every week switch.
-function renderAll() {
-  const app = document.getElementById("app");
+// "This week" view — the weekly report: week picker, headline, the numbers,
+// trend, and working / not-working / plan for the selected week.
+function renderWeekly() {
   const w = WEEKS[selectedIndex];
-  if (!w) { app.innerHTML = '<p class="week">No data yet.</p>'; return; }
+  if (!w) return '<p class="week">No weekly data yet.</p>';
   const st = STATUS[w.status] || STATUS.measurement;
   const c = w.cards || {};
   const prov = w.status === "measurement";
@@ -585,11 +608,9 @@ function renderAll() {
     `<option value="${i}"${i === selectedIndex ? " selected" : ""}>${esc(wk.week_label || shortWeek(wk))}</option>`
   ).join("");
 
-  app.innerHTML = `
-    <p class="brand">Dark Horse · Meta Ads</p>
-    ${renderCycle()}
-    ${renderAllTime()}
+  return `
     <h1>This week's ad performance</h1>
+    <p class="view-caption">One closed week at a time. Small numbers, so we read the trend, not a single week.</p>
     <div class="toolbar">
       <label for="week-select">Week ending</label>
       <select id="week-select" aria-label="Choose which week to view">${options}</select>
@@ -634,7 +655,42 @@ function renderAll() {
     <div class="plan">
       <h3>→ The plan</h3>
       <p>${esc(w.next_move || "—")}</p>
-    </div>
+    </div>`;
+}
+
+// "Last 4 weeks" view — the monthly / 4-week-cycle report: cycle status + funnel,
+// then the since-launch all-time cards. Less noisy than any single week.
+function renderMonthly() {
+  const cycleHtml = renderCycle();
+  const allTimeHtml = renderAllTime();
+  if (!cycleHtml && !allTimeHtml) {
+    return `<h1>Last 4 weeks</h1><p class="week">No cycle data yet — this fills in once a full 4-week cycle has closed.</p>`;
+  }
+  return `
+    <h1>Last 4 weeks</h1>
+    <p class="view-caption">The bigger picture — a full 4-week cycle plus the story since launch. Steadier than any single week.</p>
+    ${cycleHtml}
+    ${allTimeHtml}`;
+}
+
+// Assemble the page: brand + the view tabs + the active view + the shared
+// colour explainer/footer. Re-run on every tab switch or week switch.
+function renderAll() {
+  const app = document.getElementById("app");
+  if (!WEEKS.length) { app.innerHTML = '<p class="week">No data yet.</p>'; return; }
+
+  const tabs = `
+    <div class="tabs" role="tablist" aria-label="Choose report view">
+      <button class="tab" role="tab" data-view="weekly" aria-selected="${activeView === "weekly"}">This week</button>
+      <button class="tab" role="tab" data-view="monthly" aria-selected="${activeView === "monthly"}">Last 4 weeks</button>
+    </div>`;
+
+  const view = activeView === "monthly" ? renderMonthly() : renderWeekly();
+
+  app.innerHTML = `
+    <p class="brand">Dark Horse · Meta Ads</p>
+    ${tabs}
+    ${view}
 
     <div class="block explainer">
       <h3><span class="icon">?</span>What the colours mean</h3>
@@ -643,7 +699,7 @@ function renderAll() {
         <li><strong>Keep an eye</strong> — fine for now, just worth watching. No change yet.</li>
         <li><strong>Needs attention</strong> — something's off. We change one thing (usually the ad, the audience, or the landing page) and give it two weeks before judging.</li>
         <li><strong>“early”</strong> — too soon to read. Week-one numbers bounce around, so we wait before acting.</li>
-        <li><strong>Tap a number</strong> to see how it has moved week to week.</li>
+        <li><strong>Tap a number</strong> in "This week" to see how it has moved week to week.</li>
       </ul>
     </div>
 
@@ -660,6 +716,12 @@ function renderAll() {
 // Attach listeners after each render (innerHTML wipes the old ones).
 function wireEvents() {
   const app = document.getElementById("app");
+  app.querySelectorAll(".tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const v = btn.getAttribute("data-view");
+      if (v && v !== activeView) { activeView = v; renderAll(); }
+    });
+  });
   const sel = app.querySelector("#week-select");
   if (sel) sel.addEventListener("change", e => {
     const i = parseInt(e.target.value, 10);
