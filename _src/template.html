@@ -154,6 +154,17 @@
     color: var(--zc);
   }
   .zone-label.early { opacity: 0.7; font-weight: 600; }
+  /* Provisional flag on a card whose colour target has no data behind it yet. */
+  .prov {
+    margin-top: 10px;
+    font-size: 12px; font-weight: 600; line-height: 1.35;
+    color: #8a6400;
+  }
+  /* Divider before the weekly detail, under the monthly/all-time summary. */
+  .view-rule {
+    border: 0; border-top: 1px solid var(--line);
+    margin: 8px 0 26px;
+  }
   .legend {
     display: flex; flex-wrap: wrap; gap: 14px;
     margin: -12px 2px 30px;
@@ -520,6 +531,47 @@ function trendChart() {
     </p>`;
 }
 
+// A static (non-interactive) card: optional zone band + optional provisional flag.
+// Used by the monthly cycle funnel + the all-time cards, which are cycle-level
+// (not per-week) so they never expand into a weekly mini-chart.
+function bandStaticCard(o) {
+  const inner = cardInner(o.label, o.value, o.sub, o.band || null, o.band_label || null, false);
+  const wideCls = o.wide ? " wide" : "";
+  const prov = o.provisional
+    ? `<div class="prov">⚠ Provisional — no benchmark behind the colour yet. Re-pin at Day 60.</div>`
+    : "";
+  return `<div class="card${inner.zoneCls}${wideCls}"${inner.style ? ` style="${inner.style}"` : ""}>${inner.html}${prov}</div>`;
+}
+
+// "Current 4-week cycle" view — mirrors the Conor monthly summary: status light,
+// cycle start/end label (never a month name), funnel cards, next-cycle priority.
+function renderCycle() {
+  const cy = DATA.current_cycle;
+  if (!cy) return "";
+  const st = STATUS[cy.status] || STATUS.ontrack;
+  const funnel = (cy.funnel || []).map(f => bandStaticCard(f)).join("");
+  return `
+    <p class="section-label">Current 4-week cycle</p>
+    <p class="week">${esc(cy.cycle_label || "")}</p>
+    <div class="status ${st.cls}"><span class="dot"></span>${esc(cy.status_label || st.label)}</div>
+    ${cy.headline ? `<div class="headline">${esc(cy.headline)}</div>` : ""}
+    <div class="cards">${funnel}</div>
+    ${cy.priority ? `<div class="plan"><h3>→ Next cycle</h3><p>${esc(cy.priority)}</p></div>` : ""}`;
+}
+
+// Standing "since launch (all-time)" cards — CAC (banded) + booking/conversion
+// (provisional, no colour target yet). Grows as the Lead Log fills.
+function renderAllTime() {
+  const at = DATA.all_time;
+  if (!at || !Array.isArray(at.cards) || at.cards.length === 0) return "";
+  const cards = at.cards.map(c => bandStaticCard(c)).join("");
+  return `
+    <p class="section-label">Since launch (all-time)</p>
+    <div class="cards">${cards}</div>
+    ${at.note ? `<div class="legend"><span style="font-style:italic">${esc(at.note)}</span></div>` : ""}
+    <hr class="view-rule" />`;
+}
+
 // Render everything from the single selectedIndex. Re-run on every week switch.
 function renderAll() {
   const app = document.getElementById("app");
@@ -535,6 +587,8 @@ function renderAll() {
 
   app.innerHTML = `
     <p class="brand">Dark Horse · Meta Ads</p>
+    ${renderCycle()}
+    ${renderAllTime()}
     <h1>This week's ad performance</h1>
     <div class="toolbar">
       <label for="week-select">Week ending</label>

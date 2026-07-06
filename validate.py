@@ -130,6 +130,36 @@ def main():
                 if val is None or (isinstance(val, str) and val.strip() == ""):
                     errors.append(f"week {wid}: cards.{key} is missing or empty")
 
+    # --- current_cycle (monthly view) -----------------------------------
+    cc = data.get("current_cycle")
+    if not isinstance(cc, dict):
+        errors.append("top-level: missing or invalid `current_cycle` object")
+    else:
+        for key in ["cycle_start", "cycle_end", "cycle_label", "status", "status_label"]:
+            v = cc.get(key)
+            if v is None or (isinstance(v, str) and v.strip() == ""):
+                errors.append(f"current_cycle.{key} is missing or empty")
+        funnel = cc.get("funnel")
+        if not isinstance(funnel, list) or len(funnel) == 0:
+            errors.append("current_cycle.funnel must be a non-empty array")
+        else:
+            for i, f in enumerate(funnel):
+                if not isinstance(f, dict) or not f.get("label") or not str(f.get("value", "")).strip():
+                    errors.append(f"current_cycle.funnel[{i}] must have a non-empty label + value")
+
+    # --- all_time (standing cards) --------------------------------------
+    at = data.get("all_time")
+    if not isinstance(at, dict):
+        errors.append("top-level: missing or invalid `all_time` object")
+    else:
+        cards = at.get("cards")
+        if not isinstance(cards, list) or len(cards) == 0:
+            errors.append("all_time.cards must be a non-empty array")
+        else:
+            for i, c in enumerate(cards):
+                if not isinstance(c, dict) or not c.get("label") or not str(c.get("value", "")).strip():
+                    errors.append(f"all_time.cards[{i}] must have a non-empty label + value")
+
     if errors:
         print(f"SCHEMA VALIDATION FAILED ({len(errors)} error(s)) in {path}:", file=sys.stderr)
         for e in errors:
