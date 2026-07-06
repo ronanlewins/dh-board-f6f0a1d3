@@ -280,6 +280,21 @@
     margin: 0 0 20px; color: var(--muted); font-size: 12.5px; font-style: italic;
   }
 
+  /* Ranked primary-metric cards (monthly view) */
+  .rank-badge {
+    display: inline-block; margin-bottom: 8px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--muted); background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  }
+  .rank-badge.rank-1 { color: #8a5a00; background: #fbf3e0; border-color: #e9dcc0; }
+  .rank-hint { font-weight: 400; color: var(--muted); font-size: 12px; text-transform: none; letter-spacing: 0; }
+  ul.mini-funnel {
+    margin: 0; padding: 4px 0 0 0; list-style: none;
+    font-size: 13.5px; line-height: 1.7; color: var(--text);
+  }
+  ul.mini-funnel li { padding: 1px 0; }
+
   /* Numeric cards are real <button> controls (click-to-expand). Reset native button chrome. */
   button.card {
     font: inherit; text-align: left; width: 100%;
@@ -658,19 +673,94 @@ function renderWeekly() {
     </div>`;
 }
 
-// "Last 4 weeks" view — the monthly / 4-week-cycle report: cycle status + funnel,
-// then the since-launch all-time cards. Less noisy than any single week.
+// A ranked primary-metric card (monthly view). Clickable → expands into the
+// last-4-weeks mini-graph for metrics that have a weekly series (seriesKey), or a
+// short funnel breakdown for cumulative metrics like CAC (breakdown, no series).
+function monthlyCard(p, slice) {
+  const inner = cardInner(p.label, p.value, p.sub, p.band || null, p.band_label || null, false);
+  const badge = `<span class="rank-badge rank-${p.rank}">#${p.rank} · ${esc(p.role || "")}</span>`;
+
+  let panel = "";
+  if (p.seriesKey) {
+    const series = buildSeries(slice, p.seriesKey);
+    if (series.pts.length >= 1) {
+      const cfg = METRICS[p.seriesKey];
+      // selectedIdx:-1 → no week highlighted; this is the cycle view, not a single week.
+      panel = svgChart({ pts: series.pts, gaps: series.gaps, cfg, selectedIdx: -1, bands: bandsFor(p.seriesKey), mini: true, aria: `${p.label} over the last ${series.pts.length} weeks` });
+    }
+  } else if (Array.isArray(p.breakdown) && p.breakdown.length) {
+    panel = `<ul class="mini-funnel">${p.breakdown.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+
+  if (!panel) {
+    return `<div class="card${inner.zoneCls}"${inner.style ? ` style="${inner.style}"` : ""}>${badge}${inner.html}</div>`;
+  }
+  const panelId = `mpanel-${p.rank}`;
+  return `<button type="button" class="card metric-card${inner.zoneCls}" aria-expanded="false" aria-controls="${panelId}"${inner.style ? ` style="${inner.style}"` : ""}>
+      ${badge}${inner.html}
+      <span class="expand-hint" aria-hidden="true"><span class="hint-arrow">▾</span> last 4 weeks</span>
+      <div class="card-panel" id="${panelId}" hidden>${panel}</div>
+    </button>`;
+}
+
+// Cycle trendline — cost per enquiry across the last 4 weeks, with the cycle totals
+// (the "month total") stated beneath. Reuses the same zoned SVG as the weekly trend.
+function monthlyTrend(slice) {
+  const bands = (DATA && DATA.cpl_bands) || null;
+  const cfg = METRICS.cpl;
+  const s = buildSeries(slice, "cpl");
+  if (s.pts.length === 0) return `<p class="empty">This fills in as the cycle's weeks are added.</p>`;
+  const svg = svgChart({ pts: s.pts, gaps: s.gaps, cfg, selectedIdx: -1, bands, mini: false, aria: `Cost per enquiry across the last ${s.pts.length} weeks` });
+
+  const totSpend = slice.reduce((a, w) => a + ((w.metrics && w.metrics.spend) || 0), 0);
+  const totLeads = slice.reduce((a, w) => a + ((w.metrics && w.metrics.enquiries) || 0), 0);
+  const avg = totLeads ? totSpend / totLeads : null;
+  const totalLine = `<strong style="color:#37352f;">4-week total:</strong> €${totSpend.toFixed(0)} spent · ${totLeads} enquiries · ${avg != null ? "€" + avg.toFixed(0) + " average cost each" : "—"}.`;
+
+  return `${svg}
+    <p class="empty" style="font-style:normal;margin-top:12px;color:#787469;font-size:14px;line-height:1.55;">
+      ${totalLine} Each dot is one week — what we pay in Facebook ads to get one enquiry, and <strong style="color:#37352f;">lower is better</strong>. Green is healthy, amber is worth watching, red is too high.
+    </p>`;
+}
+
+// "Last 4 weeks" view — the monthly / 4-week-cycle report. Leads with the ranked
+// metrics that matter (CAC → Leads → CPL → Spend, each click-to-expand into its last
+// 4 weeks), then the cycle trendline, the trial funnel, and the since-launch cards.
 function renderMonthly() {
-  const cycleHtml = renderCycle();
-  const allTimeHtml = renderAllTime();
-  if (!cycleHtml && !allTimeHtml) {
+  const cy = DATA.current_cycle;
+  if (!cy) {
     return `<h1>Last 4 weeks</h1><p class="week">No cycle data yet — this fills in once a full 4-week cycle has closed.</p>`;
   }
+  const st = STATUS[cy.status] || STATUS.ontrack;
+  const slice = WEEKS.slice(-4); // the last 4 weeks = the current cycle
+
+  const primary = (cy.primary || []).map(p => monthlyCard(p, slice)).join("");
+
+  // Trial-funnel cards = the funnel items NOT already promoted to the ranked row.
+  const promoted = ["spend", "enquir", "cost per enquiry"];
+  const secondary = (cy.funnel || [])
+    .filter(f => !promoted.some(k => (f.label || "").toLowerCase().includes(k)))
+    .map(f => bandStaticCard(f)).join("");
+
   return `
     <h1>Last 4 weeks</h1>
-    <p class="view-caption">The bigger picture — a full 4-week cycle plus the story since launch. Steadier than any single week.</p>
-    ${cycleHtml}
-    ${allTimeHtml}`;
+    <p class="view-caption">The bigger picture — a full 4-week cycle, steadier than any single week. Tap any metric for its last-4-weeks detail.</p>
+    <p class="week">${esc(cy.cycle_label || "")}</p>
+    <div class="status ${st.cls}"><span class="dot"></span>${esc(cy.status_label || st.label)}</div>
+    ${cy.headline ? `<div class="headline">${esc(cy.headline)}</div>` : ""}
+
+    ${primary ? `<p class="section-label">The metrics that matter <span class="rank-hint">— ranked by importance · tap any for the last 4 weeks</span></p>
+    <div class="cards">${primary}</div>` : ""}
+
+    <p class="section-label">Cost per enquiry across the cycle</p>
+    <div class="trend">${monthlyTrend(slice)}</div>
+
+    ${secondary ? `<p class="section-label">The trial funnel</p>
+    <div class="cards">${secondary}</div>` : ""}
+
+    ${renderAllTime()}
+
+    ${cy.priority ? `<div class="plan"><h3>→ Next cycle</h3><p>${esc(cy.priority)}</p></div>` : ""}`;
 }
 
 // Assemble the page: brand + the view tabs + the active view + the shared
