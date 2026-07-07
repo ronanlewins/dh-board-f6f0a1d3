@@ -294,6 +294,9 @@
     font-size: 13.5px; line-height: 1.7; color: var(--text);
   }
   ul.mini-funnel li { padding: 1px 0; }
+  .plan ul { margin: 12px 0 0; padding-left: 20px; }
+  .plan li { margin: 5px 0; line-height: 1.55; }
+  .plan .plan-sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
 
   /* Numeric cards are real <button> controls (click-to-expand). Reset native button chrome. */
   button.card {
@@ -766,7 +769,12 @@ function renderMonthly() {
 
     ${renderAllTime()}
 
-    ${cy.priority ? `<div class="plan"><h3>→ Next cycle</h3><p>${esc(cy.priority)}</p></div>` : ""}`;
+    ${(cy.priority || (cy.next_actions && cy.next_actions.length)) ? `<div class="plan">
+      <h3>→ ${esc(cy.next_title || "What we're proposing next")}</h3>
+      ${cy.priority ? `<p>${esc(cy.priority)}</p>` : ""}
+      ${(cy.next_actions && cy.next_actions.length) ? `<ul>${cy.next_actions.map(a => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+      ${cy.next_note ? `<p class="plan-sub">${esc(cy.next_note)}</p>` : ""}
+    </div>` : ""}`;
 }
 
 // Assemble the page: brand + the view tabs + the active view + the shared
