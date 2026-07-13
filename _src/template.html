@@ -131,14 +131,22 @@
   }
   .card .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
   /* Benchmark reference line: this-vs-4-week-vs-campaign average under a metric card.
-     A hairline sets it apart as a "where does this sit against our own baseline" cue. */
+     A hairline sets it apart as a "where does this sit against our own baseline" cue.
+     Each average carries a colour-band tag (Good / Watch / Needs attention). */
   .card .avg {
-    font-size: 12px; color: var(--muted); margin-top: 10px; padding-top: 8px;
+    font-size: 13.5px; color: var(--muted); margin-top: 11px; padding-top: 9px;
     border-top: 1px dashed color-mix(in srgb, var(--line) 85%, transparent);
-    line-height: 1.5;
+    line-height: 1.9;
   }
-  .card .avg strong { color: #4a463e; font-weight: 600; }
   .card.zone .avg { border-top-color: color-mix(in srgb, var(--zb) 30%, transparent); }
+  .avg-item { white-space: nowrap; }
+  .avg-item strong { font-size: 14.5px; font-weight: 700; }
+  .avg-sep { color: var(--grey); margin: 0 8px; }
+  .avg-tag {
+    display: inline-block; margin-left: 5px; vertical-align: baseline;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.01em;
+    padding: 1px 8px; border-radius: 999px; border: 1px solid;
+  }
 
   /* Zone-coded cards — soft wash + coloured left border + icon + text label.
      Colour is never the only cue: border + icon shape + word label all carry the zone. */
@@ -379,18 +387,44 @@ const METRICS = {
 function mv(w, k) { return (w.metrics && typeof w.metrics[k] === "number") ? w.metrics[k] : undefined; }
 function sumK(ws, k) { return ws.reduce((a, w) => a + (mv(w, k) || 0), 0); }
 
+// Each aggregator returns { v: number, str: displayString } or null when undefined.
 const AVG_AGG = {
   // Cost per enquiry = total spend ÷ total enquiries over the window (spend-weighted).
-  cpl: ws => { const l = sumK(ws, "enquiries"); return l > 0 ? "€" + Math.round(sumK(ws, "spend") / l) : null; },
+  cpl: ws => { const l = sumK(ws, "enquiries"); if (l <= 0) return null; const v = sumK(ws, "spend") / l; return { v, str: "€" + Math.round(v) }; },
   // Click rate = total clicks ÷ total impressions (impression-weighted).
-  ctr: ws => { const i = sumK(ws, "impressions"); return i > 0 ? (sumK(ws, "clicks") / i * 100).toFixed(1) + "%" : null; },
+  ctr: ws => { const i = sumK(ws, "impressions"); if (i <= 0) return null; const v = sumK(ws, "clicks") / i * 100; return { v, str: v.toFixed(1) + "%" }; },
   // Audience freshness = mean of the weekly frequency readings (reach can't sum across
   // weeks without double-counting the same people, so a simple mean is the honest number).
-  frequency: ws => { const f = ws.map(w => mv(w, "frequency")).filter(x => typeof x === "number" && x > 0); return f.length ? (f.reduce((a, b) => a + b, 0) / f.length).toFixed(1) + "×" : null; }
+  frequency: ws => { const f = ws.map(w => mv(w, "frequency")).filter(x => typeof x === "number" && x > 0); if (!f.length) return null; const v = f.reduce((a, b) => a + b, 0) / f.length; return { v, str: v.toFixed(1) + "×" }; }
 };
 
-// Build the "4-wk avg X · campaign avg Y" reference line for a metric, computed over
-// history up to and including the selected week (so it stays correct for any week picked).
+// Colour-band tag styling per zone-array key (green/amber/red → matches the page legend,
+// non-colour cue = the word). Text/border colours are the AA-safe ones from BANDS.
+const AVG_TIER = {
+  green: { tc: "#2e6e36", bg: "#edf5ec", bc: "#6f9f6a", word: "Good" },
+  amber: { tc: "#8a6400", bg: "#fbf3e0", bc: "#caa53d", word: "Watch" },
+  red:   { tc: "#b22b27", bg: "#fbeceb", bc: "#bd312e", word: "Needs attention" }
+};
+
+// Which zone-array band a numeric value lands in, via the same value<=max walk the trend
+// uses (direction is baked into each array's order, so this works for cpl/ctr/frequency).
+function tierFor(metricKey, v) {
+  const bands = bandsFor(metricKey);
+  if (!bands || typeof v !== "number") return null;
+  const hit = bands.find(b => b.max == null || v <= b.max) || bands[bands.length - 1];
+  return AVG_TIER[hit && hit.key] || null;
+}
+
+// One "<label> <value> <tag>" chunk, value + tag coloured by the band the value sits in.
+function avgItem(label, agg, metricKey) {
+  const t = tierFor(metricKey, agg.v);
+  const vc = t ? ` style="color:${t.tc}"` : "";
+  const tag = t ? ` <span class="avg-tag" style="color:${t.tc};background:${t.bg};border-color:${t.bc}">${esc(t.word)}</span>` : "";
+  return `<span class="avg-item">${esc(label)} <strong${vc}>${esc(agg.str)}</strong>${tag}</span>`;
+}
+
+// Build the "4-wk avg X [tag] · campaign avg Y [tag]" reference line for a metric, computed
+// over history up to and including the selected week (so it stays correct for any week picked).
 function avgLine(metricKey, upToIdx) {
   const agg = AVG_AGG[metricKey];
   if (!agg) return "";
@@ -399,9 +433,9 @@ function avgLine(metricKey, upToIdx) {
   const last4 = hist.slice(-4);
   const a4 = agg(last4), aAll = agg(hist);
   const parts = [];
-  if (a4) parts.push(`${last4.length}-wk avg <strong>${a4}</strong>`);
-  if (aAll && hist.length > last4.length) parts.push(`campaign avg <strong>${aAll}</strong>`);
-  return parts.join(" · ");
+  if (a4) parts.push(avgItem(`${last4.length}-wk avg`, a4, metricKey));
+  if (aAll && hist.length > last4.length) parts.push(avgItem("campaign avg", aAll, metricKey));
+  return parts.join(`<span class="avg-sep">·</span>`);
 }
 
 // Zone bands per metric, passed in via data (never hardcoded thresholds in this repo).
