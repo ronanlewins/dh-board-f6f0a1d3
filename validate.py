@@ -17,7 +17,9 @@ import sys
 import os
 
 # Required numeric fields inside each week's `metrics` object.
-REQUIRED_METRICS = ["cpl", "ctr", "frequency", "enquiries", "spend"]
+# impressions/clicks/members drive the weighted 4-week + campaign averages on the
+# weekly cards — required so a future week can't silently omit them (members may be 0).
+REQUIRED_METRICS = ["cpl", "ctr", "frequency", "enquiries", "spend", "impressions", "clicks", "members"]
 
 # Required top-level zone-band arrays (ordered ascending upper-bound, final max=null).
 REQUIRED_BAND_ARRAYS = ["cpl_bands", "ctr_bands", "frequency_bands"]
