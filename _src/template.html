@@ -503,7 +503,7 @@ function buildSeries(slice, key) {
 // Handles null/zero/single-point, gaps, optional zone bands, and selected-point highlight.
 // opts: { pts, gaps, cfg, selectedIdx, bands, mini, aria }
 function svgChart(opts) {
-  const { pts, gaps = 0, cfg, selectedIdx, bands = null, mini = false, aria = "" } = opts;
+  const { pts, gaps = 0, cfg, selectedIdx, bands = null, mini = false, aria = "", avgRef = null } = opts;
   const W = mini ? 320 : 640, H = mini ? 170 : 300;
   const padL = mini ? 36 : 52, padR = mini ? 16 : 22;
   const padTop = mini ? 26 : 44, padBot = mini ? 38 : 56;
@@ -565,11 +565,26 @@ function svgChart(opts) {
   }).join("");
 
   const axis = `<line x1="${padL}" y1="${baseY.toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${baseY.toFixed(1)}" stroke="#d8d5cf" stroke-width="1.5" />`;
+
+  // All-time reference line. `avgRef.v` MUST be the correctly-weighted average from
+  // AVG_AGG (Σspend ÷ Σenquiries) — never the mean of the plotted dots. The two differ
+  // a lot here (€29 vs €41) because 0-enquiry weeks carry a running cost forward, so a
+  // naive mean of the series would both overstate the number AND contradict the
+  // "campaign avg" already shown on the cost-per-enquiry card.
+  let avgLineSvg = "";
+  if (avgRef && typeof avgRef.v === "number" && avgRef.v > 0 && avgRef.v <= yMax) {
+    const ay = yAt(avgRef.v);
+    // Keep the label inside the plot even if the line sits near the top edge.
+    const labelY = Math.max(padTop + 11, ay - 7);
+    avgLineSvg =
+      `<line x1="${padL}" y1="${ay.toFixed(1)}" x2="${(padL + plotW).toFixed(1)}" y2="${ay.toFixed(1)}" stroke="#37352f" stroke-width="1.5" stroke-dasharray="7 5" stroke-opacity="0.8" />` +
+      `<text x="${(padL + plotW).toFixed(1)}" y="${labelY.toFixed(1)}" text-anchor="end" font-size="${mini ? 11 : 13}" font-weight="600" fill="#37352f" stroke="#faf9f7" stroke-width="3.5" paint-order="stroke" stroke-linejoin="round">${esc(avgRef.label)}</text>`;
+  }
   const gapNote = gaps > 0
     ? `<text x="${padL}" y="${(padTop - 8).toFixed(1)}" font-size="12" fill="#9a958c">${gaps} earlier week${gaps > 1 ? "s" : ""} had no value</text>`
     : "";
 
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${bandRects}${axis}${line}${dots}${gapNote}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${bandRects}${axis}${avgLineSvg}${line}${dots}${gapNote}</svg>`;
 }
 
 // Inner content shared by static and button-wrapped cards (zone or neutral).
@@ -634,8 +649,14 @@ function trendChart() {
     return `<p class="empty">This chart fills in as weeks are added — you'll see the cost per enquiry move week to week.</p>`;
   }
 
-  const aria = `Cost per enquiry over ${s.pts.length} week${s.pts.length > 1 ? "s" : ""}`;
-  const svg = svgChart({ pts: s.pts, gaps: s.gaps, cfg, selectedIdx: selectedIndex, bands, mini: false, aria });
+  // All-time average across every week up to the selected one — the SAME weighted figure
+  // the cost-per-enquiry card shows as "campaign avg", so the two can never disagree.
+  const allTime = AVG_AGG.cpl(slice);
+  const avgRef = (allTime && s.pts.length >= 2) ? { v: allTime.v, label: `all-time avg ${allTime.str}` } : null;
+
+  const aria = `Cost per enquiry over ${s.pts.length} week${s.pts.length > 1 ? "s" : ""}`
+    + (avgRef ? `, with an all-time average reference line at ${allTime.str}` : "");
+  const svg = svgChart({ pts: s.pts, gaps: s.gaps, cfg, selectedIdx: selectedIndex, bands, mini: false, aria, avgRef });
 
   const last = s.pts[s.pts.length - 1].v;
   let zoneWord = "the high zone";
@@ -649,6 +670,7 @@ function trendChart() {
       <strong style="color:#37352f;">What this shows:</strong> each dot is one week — what we pay in Facebook ads to get one enquiry, and <strong style="color:#37352f;">lower is better</strong>.
       The bands behind the line are the zones: green is healthy, amber is worth watching, red is too high.
       Right now it's <strong style="color:#37352f;">${esc(fmtVal(cfg, last))}</strong>, sitting in ${zoneWord}.
+      ${avgRef ? `The dashed line is the <strong style="color:#37352f;">all-time average, ${esc(allTime.str)} per enquiry</strong> — that's every euro spent since launch divided by every enquiry we've had, so it's what the campaign has really cost us overall. Individual weeks bounce above and below it, especially quiet ones.` : ""}
     </p>`;
 }
 
@@ -796,16 +818,32 @@ function monthlyTrend(slice) {
   const cfg = METRICS.cpl;
   const s = buildSeries(slice, "cpl");
   if (s.pts.length === 0) return `<p class="empty">This fills in as the cycle's weeks are added.</p>`;
-  const svg = svgChart({ pts: s.pts, gaps: s.gaps, cfg, selectedIdx: -1, bands, mini: false, aria: `Cost per enquiry across the last ${s.pts.length} weeks` });
+
+  // Same all-time reference line as the weekly trend, but computed over EVERY week (not just
+  // this cycle) — on a 4-week chart its job is to show how the recent cycle compares to the
+  // campaign lifetime. Weighted via AVG_AGG, never a mean of the plotted dots.
+  const allTime = AVG_AGG.cpl(WEEKS);
+  const avgRef = allTime ? { v: allTime.v, label: `all-time avg ${allTime.str}` } : null;
+
+  const svg = svgChart({
+    pts: s.pts, gaps: s.gaps, cfg, selectedIdx: -1, bands, mini: false, avgRef,
+    aria: `Cost per enquiry across the last ${s.pts.length} weeks`
+      + (avgRef ? `, with an all-time average reference line at ${allTime.str}` : "")
+  });
 
   const totSpend = slice.reduce((a, w) => a + ((w.metrics && w.metrics.spend) || 0), 0);
   const totLeads = slice.reduce((a, w) => a + ((w.metrics && w.metrics.enquiries) || 0), 0);
   const avg = totLeads ? totSpend / totLeads : null;
   const totalLine = `<strong style="color:#37352f;">4-week total:</strong> €${totSpend.toFixed(0)} spent · ${totLeads} enquiries · ${avg != null ? "€" + avg.toFixed(0) + " average cost each" : "—"}.`;
 
+  // Only draw the comparison sentence when the two figures actually differ once rounded.
+  const compare = (avgRef && avg != null && Math.round(avg) !== Math.round(allTime.v))
+    ? ` The dashed line is the <strong style="color:#37352f;">all-time average, ${esc(allTime.str)} per enquiry</strong> — every euro spent since launch divided by every enquiry. These last 4 weeks have run ${Math.round(avg) > Math.round(allTime.v) ? "above" : "below"} that.`
+    : (avgRef ? ` The dashed line is the <strong style="color:#37352f;">all-time average, ${esc(allTime.str)} per enquiry</strong> — every euro spent since launch divided by every enquiry.` : "");
+
   return `${svg}
     <p class="empty" style="font-style:normal;margin-top:12px;color:#787469;font-size:14px;line-height:1.55;">
-      ${totalLine} Each dot is one week — what we pay in Facebook ads to get one enquiry, and <strong style="color:#37352f;">lower is better</strong>. Green is healthy, amber is worth watching, red is too high.
+      ${totalLine} Each dot is one week — what we pay in Facebook ads to get one enquiry, and <strong style="color:#37352f;">lower is better</strong>. Green is healthy, amber is worth watching, red is too high.${compare}
     </p>`;
 }
 
