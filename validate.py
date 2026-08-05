@@ -79,6 +79,16 @@ REQUIRED_CARDS = [
     "best_ad",
 ]
 
+# Optional card groups: not required, but if the lead field is present the whole
+# group must be, or the card renders half-empty. Mirrors how `cac`/`cac_sub` pair up.
+#   page_visits — the landing-page card ("The page"). Deliberately UNBANDED: it is a
+#   raw visit count extrapolated from a ~10% sample, so it carries no meaningful
+#   threshold. The plain-English caveat lives in page_visits_sub and is mandatory.
+OPTIONAL_CARD_GROUPS = {
+    "page_visits": ["page_visits_sub"],
+    "cac": ["cac_sub", "cac_band", "cac_band_label"],
+}
+
 
 def main():
     path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
@@ -131,6 +141,19 @@ def main():
                 val = cards.get(key)
                 if val is None or (isinstance(val, str) and val.strip() == ""):
                     errors.append(f"week {wid}: cards.{key} is missing or empty")
+
+            # Optional groups: all-or-nothing. A lead field with a missing companion
+            # ships a card with a blank explanation, which is worse than no card.
+            for lead, companions in OPTIONAL_CARD_GROUPS.items():
+                lead_val = cards.get(lead)
+                if lead_val is None or (isinstance(lead_val, str) and lead_val.strip() == ""):
+                    continue
+                for key in companions:
+                    val = cards.get(key)
+                    if val is None or (isinstance(val, str) and val.strip() == ""):
+                        errors.append(
+                            f"week {wid}: cards.{key} is required because cards.{lead} is set"
+                        )
 
     # --- current_cycle (monthly view) -----------------------------------
     cc = data.get("current_cycle")

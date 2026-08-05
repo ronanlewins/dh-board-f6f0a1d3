@@ -751,6 +751,7 @@ function renderWeekly() {
       ${metricCard({ label: "Click rate", value: c.click_rate, sub: c.click_rate_sub, band: c.click_rate_band, bandLabel: c.click_rate_band_label, provisional: prov, metricKey: "ctr", avg: avgLine("ctr", selectedIndex) })}
       ${metricCard({ label: "Audience freshness", value: c.audience_freshness, sub: c.audience_freshness_sub, band: c.audience_freshness_band, bandLabel: c.audience_freshness_band_label, provisional: prov, wide: true, metricKey: "frequency", avg: avgLine("frequency", selectedIndex) })}
       ${c.cac ? metricCard({ label: "Cost per member so far (CAC)", value: c.cac, sub: c.cac_sub, band: c.cac_band, bandLabel: c.cac_band_label, wide: true, metricKey: "cac" }) : ""}
+      ${c.page_visits ? metricCard({ label: "The page", value: c.page_visits, sub: c.page_visits_sub, wide: true, metricKey: "page" }) : ""}
       <div class="card wide"><div class="label">Best performing ad</div><div class="value">${esc(c.best_ad || "—")}</div></div>
     </div>
     <div class="legend">
