@@ -338,6 +338,39 @@
     h1 { font-size: 26px; }
     .card .value { font-size: 24px; }
     #week-select { width: 100%; }
+    /* Pre-existing overflow, not caused by the funnel work: `.avg-item` is nowrap so a
+       narrow 2-column card ("4-wk avg 1.2% [Good]") can push past the viewport edge on a
+       phone. Wrap it below ~420px only — desktop keeps the original single-line look. */
+    .avg-item { white-space: normal; }
+  }
+
+  /* Funnel — 3 blocks, 2 bridges. No SVG: a left border stands in for the connector. */
+  .funnel { margin-bottom: 28px; }
+  .f-legend { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
+  .f-h { font-weight: 700; font-size: 16px; margin: 20px 0 8px; color: var(--text); }
+  .f-h .f-sub { font-weight: 500; font-size: 12px; color: var(--muted); margin-left: 6px; }
+  .f-row {
+    position: relative; padding: 9px 10px 9px 14px; margin-bottom: 2px;
+    border-left: 2px solid var(--line);
+  }
+  .f-row.f-diag { border-left-color: transparent; padding: 3px 10px 3px 14px; opacity: .85; }
+  .f-row.f-bottleneck { border-left-color: var(--brick); background: #fbeceb; border-radius: 0 8px 8px 0; }
+  .f-line1, .f-line2 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; }
+  .f-lbl { font-size: 13.5px; font-weight: 600; color: var(--text); overflow-wrap: break-word; }
+  .f-val { font-size: 18px; font-weight: 700; color: var(--text); overflow-wrap: break-word; }
+  .f-glyph { font-size: 11px; color: var(--muted); }
+  .f-tier { font-size: 11px; color: var(--muted); }
+  .f-cav { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; overflow-wrap: break-word; }
+  .f-bn-note { font-size: 12px; font-weight: 700; color: #b22b27; margin-top: 3px; }
+  .f-note {
+    font-size: 12.5px; color: var(--muted); font-style: italic;
+    margin: 3px 0 10px 14px; overflow-wrap: break-word;
+  }
+  .f-bridge { padding: 8px 0 8px 14px; margin: 2px 0 8px; border-left: 2px dashed var(--gold-solid); }
+  .f-bridge p { font-size: 12.5px; color: var(--gold-ink); font-weight: 600; line-height: 1.45; overflow-wrap: break-word; }
+  @media (max-width: 420px) {
+    .f-val { font-size: 16px; }
+    .f-lbl { font-size: 12.5px; }
   }
 </style>
 </head>
@@ -715,6 +748,95 @@ function renderAllTime() {
     <hr class="view-rule" />`;
 }
 
+// ---- Funnel — 3 blocks, 2 bridges. Full record + build-time ranking: data/funnel.json.
+const TIER_GLYPH = { b: "●", d: "◐", p: "○" };
+const TIER_WORD  = { b: "Banded", d: "Directional", p: "Baseline pending" };
+
+function fRec(recs, id) { return recs.find(r => r.id === id); }
+
+// NO_ZERO_FILL: pending/partial never render as 0.
+function fVal(r) {
+  if (r.val === "pending") return "not yet measured";
+  if (typeof r.val === "string" && r.val.indexOf("partial:") === 0) return `partial — ${r.val.slice(8)} of 28 days`;
+  if (r.ren === "p") return `${r.val}%`;
+  if (r.ren === "f" || r.ren === "fp") {
+    const parts = r.val.split("/");
+    const pct = r.ren === "fp" ? ` (${(parts[0] / parts[1] * 100).toFixed(1)}%)` : "";
+    return `${parts[0]} of ${parts[1]}${pct}`;
+  }
+  return String(r.val);
+}
+
+// Colour/band name only at tier "b" (banded) — never on directional/baseline-pending.
+function fRow(r, diag) {
+  const glyph = r.tier ? `<span class="f-glyph" aria-hidden="true">${TIER_GLYPH[r.tier]}</span>` : "";
+  const tierTxt = r.tier ? `<span class="f-tier">${esc(TIER_WORD[r.tier])}</span>` : "";
+  const band = (r.tier === "b" && r.band && r.band !== "none")
+    ? ` <span class="avg-tag" style="color:#2e6e36;background:#edf5ec;border-color:#6f9f6a">${esc(r.band)}</span>` : "";
+  return `<div class="f-row${diag ? " f-diag" : ""}${r.bn ? " f-bottleneck" : ""}">
+      <div class="f-line1"><span class="f-lbl">${esc(r.lbl)}</span>${band}</div>
+      <div class="f-line2"><span class="f-val">${esc(fVal(r))}</span>${glyph}${tierTxt}</div>
+      ${r.bn ? `<div class="f-bn-note">Biggest loss in the funnel right now</div>` : ""}
+      <div class="f-cav">${esc(r.cav)}</div>
+    </div>`;
+}
+
+// Paid clicks -> all traffic. No percentage — text generated live from the two node
+// values already shipped in this same array, so it never goes stale.
+function fBridge1(recs) {
+  const clicks = fRec(recs, "b1.link_clicks"), visits = fRec(recs, "b2.page_visits");
+  let txt = "Meta and Cloudflare count different things here — never a percentage across this line.";
+  if (clicks && visits && typeof clicks.val === "number" && typeof visits.val === "number") {
+    const ratio = (visits.val / clicks.val).toFixed(1);
+    txt = `Meta counted ${clicks.val} paid clicks this week. Cloudflare counted ${visits.val} visits from all traffic over the trailing 28 days — running ${ratio}x higher is normal here, not a loss.`;
+    if (visits.val < clicks.val) txt += " Cloudflare is BELOW link clicks this time — clicks are not landing, worth a look.";
+  }
+  return `<div class="f-bridge"><p>${esc(txt)}</p></div>`;
+}
+
+function fBridge2() {
+  return `<div class="f-bridge"><p>Two things change here at once: all-traffic counts (trailing 28 days) become ads-attributed leads only (campaign-to-date). Nothing above this line is compared to anything below it.</p></div>`;
+}
+
+// Text-only graphic (no image/canvas), so the aria-label is the full text alternative.
+// No buttons here, so tab order/focus is untouched.
+function funnelSection(funnel) {
+  if (!funnel || !funnel.records || !funnel.records.length) return "";
+  const recs = funnel.records;
+  const seq = ids => ids.map(id => fRec(recs, id)).filter(Boolean);
+
+  const b1 = seq(["b1.impressions", "b1.ctr", "b1.link_clicks"]).map(r => fRow(r)).join("");
+  const b2visits = seq(["b2.page_visits", "b2.e_visits_to_reached"]).map(r => fRow(r)).join("");
+  const scrolled = fRec(recs, "b2.reached_scrolled"), jumped = fRec(recs, "b2.reached_jumped");
+  const b2reached = `${scrolled ? fRow(scrolled) : ""}${jumped ? fRow(jumped) : ""}
+    <p class="f-note">Neither route measures persuasion — someone who taps a jump button has read almost nothing. The two are never pooled into one number.</p>`;
+  const started = fRec(recs, "b2.started_form"), submitted = fRec(recs, "b2.e_started_to_submitted"), subCount = fRec(recs, "b2.form_submissions");
+  const b2form = `<p class="f-note">Reached &rarr; started never renders as a percentage here — the two counts describe different populations, so only the raw counts are shown.</p>
+    ${started ? fRow(started) : ""}${submitted ? fRow(submitted) : ""}${subCount ? fRow(subCount) : ""}`;
+  const lpConv = fRec(recs, "b2.lp_conversion");
+  const b3lead = seq(["b3.enquiries", "b3.e_lead_to_trial", "b3.trials_booked"]).map(r => fRow(r)).join("");
+  const b3diag = seq(["b3.e_booked_to_attended", "b3.trials_attended"]).map(r => fRow(r, true)).join("");
+  const b3member = seq(["b3.e_trial_to_member", "b3.members"]).map(r => fRow(r)).join("");
+
+  return `
+    <section class="funnel" aria-label="The three-block funnel from ad impressions to members joined, with the biggest current loss highlighted">
+      <p class="f-legend">${TIER_GLYPH.b} banded &nbsp; ${TIER_GLYPH.d} directional &nbsp; ${TIER_GLYPH.p} baseline pending</p>
+      <h3 class="f-h">Block 1 — The Ad <span class="f-sub">paid traffic, this week</span></h3>
+      ${b1}
+      ${fBridge1(recs)}
+      <h3 class="f-h">Block 2 — The Page <span class="f-sub">all traffic, trailing 28 days</span></h3>
+      ${b2visits}
+      ${b2reached}
+      ${b2form}
+      ${lpConv ? fRow(lpConv, true) : ""}
+      ${fBridge2()}
+      <h3 class="f-h">Block 3 — The Business <span class="f-sub">ads-attributed, campaign-to-date</span></h3>
+      ${b3lead}
+      ${b3diag}
+      ${b3member}
+    </section>`;
+}
+
 // "This week" view — the weekly report: week picker, headline, the numbers,
 // trend, and working / not-working / plan for the selected week.
 function renderWeekly() {
@@ -743,15 +865,29 @@ function renderWeekly() {
 
     ${w.video_url ? `<a class="btn-video" href="${esc(w.video_url)}" target="_blank" rel="noopener"><span class="play">▶</span><span>Watch this week's walkthrough <span class="sub">(quick video from Ronan)</span></span></a>` : ""}
 
-    <p class="section-label">The numbers</p>
+    <p class="section-label">The funnel — where people are lost</p>
+    ${funnelSection(DATA.funnel)}
+
+    <p class="section-label">Block 1 detail — The Ad</p>
     <div class="cards">
       ${metricCard({ label: "Spend", value: c.spend, metricKey: "spend" })}
-      ${metricCard({ label: "Enquiries", value: c.enquiries, sub: c.enquiries_sub, metricKey: "enquiries" })}
-      ${metricCard({ label: "Cost per enquiry", value: c.cost_per_enquiry, sub: c.cost_per_enquiry_sub, band: c.cost_per_enquiry_band, bandLabel: c.cost_per_enquiry_band_label, provisional: prov, metricKey: "cpl", avg: avgLine("cpl", selectedIndex) })}
       ${metricCard({ label: "Click rate", value: c.click_rate, sub: c.click_rate_sub, band: c.click_rate_band, bandLabel: c.click_rate_band_label, provisional: prov, metricKey: "ctr", avg: avgLine("ctr", selectedIndex) })}
       ${metricCard({ label: "Audience freshness", value: c.audience_freshness, sub: c.audience_freshness_sub, band: c.audience_freshness_band, bandLabel: c.audience_freshness_band_label, provisional: prov, wide: true, metricKey: "frequency", avg: avgLine("frequency", selectedIndex) })}
+    </div>
+
+    <p class="section-label">Block 2 detail — The Page</p>
+    <div class="cards">
+      ${c.page_visits ? metricCard({ label: "The page", value: c.page_visits, sub: c.page_visits_sub, wide: true, metricKey: "page" }) : `<div class="card wide"><div class="label">The page</div><div class="sub">No detail yet this week.</div></div>`}
+    </div>
+
+    <p class="section-label">Block 3 detail — The Business</p>
+    <div class="cards">
+      ${metricCard({ label: "Enquiries", value: c.enquiries, sub: c.enquiries_sub, metricKey: "enquiries" })}
+      ${metricCard({ label: "Cost per enquiry", value: c.cost_per_enquiry, sub: c.cost_per_enquiry_sub, band: c.cost_per_enquiry_band, bandLabel: c.cost_per_enquiry_band_label, provisional: prov, metricKey: "cpl", avg: avgLine("cpl", selectedIndex) })}
       ${c.cac ? metricCard({ label: "Cost per member so far (CAC)", value: c.cac, sub: c.cac_sub, band: c.cac_band, bandLabel: c.cac_band_label, wide: true, metricKey: "cac" }) : ""}
-      ${c.page_visits ? metricCard({ label: "The page", value: c.page_visits, sub: c.page_visits_sub, wide: true, metricKey: "page" }) : ""}
+    </div>
+
+    <div class="cards">
       <div class="card wide"><div class="label">Best performing ad</div><div class="value">${esc(c.best_ad || "—")}</div></div>
     </div>
     <div class="legend">
