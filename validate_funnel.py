@@ -29,6 +29,12 @@ VALID_RENDERS = {"count", "fraction", "percent", "fraction_percent", "annotation
 VALID_PROHIBITIONS = {
     "NO_PERCENT", "NO_BAND", "NO_SUM", "NO_CROSS_BRIDGE", "NO_CLAMP",
     "NO_RANK", "NO_ZERO_FILL", "NEVER_COMPUTE", "FRACTION_FIRST",
+    # Added 11.08.26: data/funnel.json (hand-maintained, gitignored) started carrying
+    # NO_BENCHMARK_BAND on b3.e_trial_to_member and b3.e_enquiry_to_member when those
+    # edges moved to signed targets with no benchmark band behind them. The code was a
+    # real, deliberate authoring choice; this validator's vocabulary had simply not
+    # caught up, so the build failed on valid data.
+    "NO_BENCHMARK_BAND",
 }
 
 

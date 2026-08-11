@@ -263,7 +263,7 @@
     margin-bottom: 20px;
   }
   .toolbar label { font-size: 13px; color: var(--muted); font-weight: 600; }
-  #week-select {
+  #week-select, #cycle-select {
     font: inherit; font-size: 14.5px; color: var(--text);
     background: var(--panel);
     border: 1px solid var(--line); border-radius: 8px;
@@ -273,7 +273,7 @@
     background-repeat: no-repeat; background-position: right 12px center;
     box-shadow: 0 1px 2px rgba(15, 15, 15, 0.03);
   }
-  #week-select:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
+  #week-select:focus-visible, #cycle-select:focus-visible { outline: 2px solid var(--gold-ink); outline-offset: 2px; }
 
   /* Top-level view tabs — switch between the weekly report and the 4-week cycle report */
   .tabs {
@@ -337,7 +337,7 @@
   @media (max-width: 420px) {
     h1 { font-size: 26px; }
     .card .value { font-size: 24px; }
-    #week-select { width: 100%; }
+    #week-select, #cycle-select { width: 100%; }
     /* Pre-existing overflow, not caused by the funnel work: `.avg-item` is nowrap so a
        narrow 2-column card ("4-wk avg 1.2% [Good]") can push past the viewport edge on a
        phone. Wrap it below ~420px only — desktop keeps the original single-line look. */
@@ -489,8 +489,34 @@ const DIM_DOT = "#d8b878";    // earlier points
 // ---- single application state -------------------------------------------------
 let DATA = null;
 let WEEKS = [];
+let CYCLES = [];
 let selectedIndex = 0;
+let selectedCycleIndex = 0;
 let activeView = "weekly"; // "weekly" (this week) | "monthly" (last 4 weeks / cycle)
+
+// "2026-06-08" + "2026-07-05" -> "08.06.26 – 05.07.26" (DD.MM.YY, workspace convention).
+// Used for the cycle dropdown's option text, which needs to be shorter than the full
+// `cycle_label` ("4-week cycle: 08.06.26 – 05.07.26") to fit a phone-width select.
+function shortCycle(cy) {
+  const dmy = iso => {
+    const p = (iso || "").split("-");
+    return p.length === 3 ? `${p[2]}.${p[1]}.${p[0].slice(2)}` : iso || "";
+  };
+  if (cy.cycle_start && cy.cycle_end) return `${dmy(cy.cycle_start)} – ${dmy(cy.cycle_end)}`;
+  return cy.cycle_label || "";
+}
+
+// The 4 weekly rows that belong to a cycle, selected by DATE RANGE rather than
+// WEEKS.slice(-4). The old slice always took the four most recent weeks, so browsing
+// back to an earlier cycle showed that cycle's cards above the LATEST four weeks'
+// trendline — the two disagreed on screen. Both `week_ending` and `cycle_start`/
+// `cycle_end` are ISO yyyy-mm-dd, so a string compare is a date compare here.
+function weeksInCycle(cy) {
+  if (!cy || !cy.cycle_start || !cy.cycle_end) return WEEKS.slice(-4);
+  const inRange = WEEKS.filter(w =>
+    w.week_ending >= cy.cycle_start && w.week_ending <= cy.cycle_end);
+  return inRange.length ? inRange : WEEKS.slice(-4);
+}
 
 function shortWeek(w) {
   // "2026-06-21" -> "21 Jun"
@@ -988,12 +1014,16 @@ function monthlyTrend(slice) {
 // metrics that matter (CAC → Leads → CPL → Spend, each click-to-expand into its last
 // 4 weeks), then the cycle trendline, the trial funnel, and the since-launch cards.
 function renderMonthly() {
-  const cy = DATA.current_cycle;
+  const cy = CYCLES[selectedCycleIndex];
   if (!cy) {
     return `<h1>Last 4 weeks</h1><p class="week">No cycle data yet — this fills in once a full 4-week cycle has closed.</p>`;
   }
   const st = STATUS[cy.status] || STATUS.ontrack;
-  const slice = WEEKS.slice(-4); // the last 4 weeks = the current cycle
+  const slice = weeksInCycle(cy); // the 4 weekly rows inside the SELECTED cycle
+
+  const cycleOptions = CYCLES.map((c, i) =>
+    `<option value="${i}"${i === selectedCycleIndex ? " selected" : ""}>${esc(shortCycle(c))}</option>`
+  ).join("");
 
   const primary = (cy.primary || []).map(p => monthlyCard(p, slice)).join("");
   const creative = (cy.creative || []).map(p => monthlyCard(p, slice)).join("");
@@ -1007,6 +1037,10 @@ function renderMonthly() {
   return `
     <h1>Last 4 weeks</h1>
     <p class="view-caption">The bigger picture — a full 4-week cycle, steadier than any single week. Tap any metric for its last-4-weeks detail.</p>
+    <div class="toolbar">
+      <label for="cycle-select">4-week cycle</label>
+      <select id="cycle-select" aria-label="Choose which 4-week cycle to view">${cycleOptions}</select>
+    </div>
     <p class="week">${esc(cy.cycle_label || "")}</p>
     <div class="status ${st.cls}"><span class="dot"></span>${esc(cy.status_label || st.label)}</div>
     ${cy.headline ? `<div class="headline">${esc(cy.headline)}</div>` : ""}
@@ -1087,6 +1121,11 @@ function wireEvents() {
     const i = parseInt(e.target.value, 10);
     if (!Number.isNaN(i) && i >= 0 && i < WEEKS.length) { selectedIndex = i; renderAll(); }
   });
+  const cySel = app.querySelector("#cycle-select");
+  if (cySel) cySel.addEventListener("change", e => {
+    const i = parseInt(e.target.value, 10);
+    if (!Number.isNaN(i) && i >= 0 && i < CYCLES.length) { selectedCycleIndex = i; renderAll(); }
+  });
   app.querySelectorAll(".metric-card").forEach(btn => {
     btn.addEventListener("click", () => {
       const expanded = btn.getAttribute("aria-expanded") === "true";
@@ -1101,7 +1140,14 @@ function wireEvents() {
 function render(data) {
   DATA = data;
   WEEKS = data.weeks || [];
-  selectedIndex = WEEKS.length - 1; // default to the most recent week
+  // `cycles` (oldest first) powers the 4-week dropdown the same way `weeks` powers the
+  // weekly one. `current_cycle` is the older single-cycle field and stays as the fallback
+  // so the view still renders if `cycles` is ever missing.
+  CYCLES = (Array.isArray(data.cycles) && data.cycles.length)
+    ? data.cycles
+    : (data.current_cycle ? [data.current_cycle] : []);
+  selectedIndex = WEEKS.length - 1;            // default to the most recent week
+  selectedCycleIndex = CYCLES.length - 1;      // default to the most recent closed cycle
   renderAll();
 }
 
