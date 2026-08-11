@@ -826,6 +826,12 @@ function fBridge2() {
 
 // Text-only graphic (no image/canvas), so the aria-label is the full text alternative.
 // No buttons here, so tab order/focus is untouched.
+//
+// NOT CALLED as of 11.08.26. The funnel graphic was a draft Ronan was trying out on the
+// weekly view; he asked for it removed and the weekly view returned to the single
+// "The numbers" card grid it had before. The functions below are kept (rather than
+// deleted) so putting it back is a one-line change in renderWeekly(). data/funnel.json
+// is still validated and still inlined by build.sh — it just isn't rendered anywhere.
 function funnelSection(funnel) {
   if (!funnel || !funnel.records || !funnel.records.length) return "";
   const recs = funnel.records;
@@ -891,29 +897,15 @@ function renderWeekly() {
 
     ${w.video_url ? `<a class="btn-video" href="${esc(w.video_url)}" target="_blank" rel="noopener"><span class="play">▶</span><span>Watch this week's walkthrough <span class="sub">(quick video from Ronan)</span></span></a>` : ""}
 
-    <p class="section-label">The funnel — where people are lost</p>
-    ${funnelSection(DATA.funnel)}
-
-    <p class="section-label">Block 1 detail — The Ad</p>
+    <p class="section-label">The numbers</p>
     <div class="cards">
       ${metricCard({ label: "Spend", value: c.spend, metricKey: "spend" })}
-      ${metricCard({ label: "Click rate", value: c.click_rate, sub: c.click_rate_sub, band: c.click_rate_band, bandLabel: c.click_rate_band_label, provisional: prov, metricKey: "ctr", avg: avgLine("ctr", selectedIndex) })}
-      ${metricCard({ label: "Audience freshness", value: c.audience_freshness, sub: c.audience_freshness_sub, band: c.audience_freshness_band, bandLabel: c.audience_freshness_band_label, provisional: prov, wide: true, metricKey: "frequency", avg: avgLine("frequency", selectedIndex) })}
-    </div>
-
-    <p class="section-label">Block 2 detail — The Page</p>
-    <div class="cards">
-      ${c.page_visits ? metricCard({ label: "The page", value: c.page_visits, sub: c.page_visits_sub, wide: true, metricKey: "page" }) : `<div class="card wide"><div class="label">The page</div><div class="sub">No detail yet this week.</div></div>`}
-    </div>
-
-    <p class="section-label">Block 3 detail — The Business</p>
-    <div class="cards">
       ${metricCard({ label: "Enquiries", value: c.enquiries, sub: c.enquiries_sub, metricKey: "enquiries" })}
       ${metricCard({ label: "Cost per enquiry", value: c.cost_per_enquiry, sub: c.cost_per_enquiry_sub, band: c.cost_per_enquiry_band, bandLabel: c.cost_per_enquiry_band_label, provisional: prov, metricKey: "cpl", avg: avgLine("cpl", selectedIndex) })}
+      ${metricCard({ label: "Click rate", value: c.click_rate, sub: c.click_rate_sub, band: c.click_rate_band, bandLabel: c.click_rate_band_label, provisional: prov, metricKey: "ctr", avg: avgLine("ctr", selectedIndex) })}
+      ${metricCard({ label: "Audience freshness", value: c.audience_freshness, sub: c.audience_freshness_sub, band: c.audience_freshness_band, bandLabel: c.audience_freshness_band_label, provisional: prov, wide: true, metricKey: "frequency", avg: avgLine("frequency", selectedIndex) })}
       ${c.cac ? metricCard({ label: "Cost per member so far (CAC)", value: c.cac, sub: c.cac_sub, band: c.cac_band, bandLabel: c.cac_band_label, wide: true, metricKey: "cac" }) : ""}
-    </div>
-
-    <div class="cards">
+      ${c.page_visits ? metricCard({ label: "The page", value: c.page_visits, sub: c.page_visits_sub, wide: true, metricKey: "page" }) : ""}
       <div class="card wide"><div class="label">Best performing ad</div><div class="value">${esc(c.best_ad || "—")}</div></div>
     </div>
     <div class="legend">
